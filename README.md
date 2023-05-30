@@ -48,4 +48,4 @@ The app injects js that allows the extraction of a direct link to the video. In 
 
 ## Download
 
-[Releases](https://choosealicense.com/licenses/mit/)
+[Releases](https://github.com/SerpentDash/shinden_mobile/releases)
