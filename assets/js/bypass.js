@@ -115,16 +115,14 @@
                 if(el != btn) el.classList.remove('selected');
                 el.nextSibling.classList.remove('show');
             });
-            clearTimeout(timer); // prevents unnecessary requests when user change source
-            container.innerHTML = ''; // clear countdown container
         }
     }
 
-    let container, timer = null;
+    let container, timer;
     function countdown(array, time) {
+        clearInterval(timer); // clear timer to prevent multiple requests when user change source
         container.innerHTML = `<h2 class='countdown'>${time > 0 ? `Odliczanie: ${time}`: "Ładowanie playera"}</h2>`;
         if(time <= 0) {
-            clearTimeout(timer);
             getReq(`https://api4.shinden.pl/xhr/${array[0].online_id}/player_show?auth=${array[1]}&width=${document.body.offsetWidth}`, replace);
             return;
         }
