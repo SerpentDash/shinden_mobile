@@ -60,7 +60,7 @@ Future main() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
     WebView.debugLoggingSettings.enabled = kDebugMode;
     await InAppWebViewController.setWebContentsDebuggingEnabled(
-        true); //kDebugMode);
+        kDebugMode); //kDebugMode);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
