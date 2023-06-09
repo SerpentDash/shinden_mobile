@@ -24,6 +24,7 @@ import 'package:wakelock/wakelock.dart';
 import 'package:app_links/app_links.dart';
 import 'package:auto_orientation/auto_orientation.dart';
 
+import 'package:open_file_plus/open_file_plus.dart';
 import 'package:simple_downloader/simple_downloader.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';

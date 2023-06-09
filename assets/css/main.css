@@ -213,7 +213,7 @@ p.message.error.box {padding: 0px !important;}
 .data-view-table td, .data-view-table td.data-view-table-label {padding-left: 0 !important; padding-right: 5px !important;}
 .title-other, .episode-head{ padding: 0 10px; }
 .title-other, .episode-head{ background: transparent  }
-.episode-head small {font-size: 2.5vw !important; top: -.2em !important;}
+.episode-head small {font-size: medium !important; top: -.15em !important;}
 .title-threads {display: none;}
 textarea{ background: rgba(0,0,0,0.1); color: #fff; }
 .fansub-ad-info { display: none; }

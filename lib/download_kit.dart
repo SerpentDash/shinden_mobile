@@ -1,4 +1,4 @@
-// ignore_for_file: invalid_use_of_protected_member, library_private_types_in_public_api, curly_braces_in_flow_control_structures
+// ignore_for_file: invalid_use_of_protected_member, library_private_types_in_public_api
 
 part of 'main.dart';
 
@@ -22,7 +22,7 @@ void downloadQueueAdd(url, fileName) async {
   downloadQueue.add(DownloadQueue(url, fileName));
   if (downloadQueue.length > 1) {
     NativeToast().makeText(
-        message: 'Added to Download Queue:\n$fileName',
+        message: 'Added to Queue:\n$fileName',
         duration: NativeToast.shortLength);
     return;
   }
@@ -31,7 +31,7 @@ void downloadQueueAdd(url, fileName) async {
 
 void downloadQueueCheck() async {
   if (downloadQueue.isEmpty) {
-    Future.delayed(const Duration(seconds: 1), () => _downloader.dispose());
+    Future.delayed(const Duration(seconds: 1), _downloader.dispose);
     return;
   }
   await _download(downloadQueue[0].url, downloadQueue[0].fileName);
@@ -54,6 +54,7 @@ void downloadOrStream(controller, url, fileName) async {
   await SessionManager().get('mode').then((val) async {
     String title = sanitizeFilename(fileName.toString().trim());
     if (p.basename(title).split('.')[0] == "video") {
+      // rename generic file name to one before last pathSegment
       Uri u = Uri.parse(url);
       title = u.pathSegments[u.pathSegments.length - 2];
     }
@@ -71,7 +72,9 @@ void downloadOrStream(controller, url, fileName) async {
                 await File('$savePath/$title.tmp').exists())
             ? downloadQueueAdd(url, title)
             : NativeToast().makeText(
-                message: 'File already exists!',
+                message: _task.fileName == title
+                    ? 'Already in Queue'
+                    : 'File already exists!',
                 duration: NativeToast.longLength);
         break;
       default:
@@ -124,7 +127,7 @@ Future<void> initNotifications() async {
 Future<void> initSimpleDownloader(id) async {
   _downloader = SimpleDownloader.init(task: _task);
 
-  // prevents too much changes in UI
+  // prevents too much changes in notification UI
   final thr = Throttling(duration: const Duration(seconds: 1));
 
   _downloader.callback.addListener(() async {
@@ -174,7 +177,7 @@ Future<void> setNotification(id) async {
       break;
     case DownloadStatus.completed:
       notificationMessage(
-          'Download sucessful', _task.fileName, ActionType.SilentAction, id);
+          'Download sucessful', _task.fileName, ActionType.Default, id);
       downloadQueue.removeAt(0);
       downloadQueueCheck();
       break;
@@ -186,13 +189,8 @@ Future<void> setNotification(id) async {
 }
 
 Future<void> notificationOnClick(ReceivedAction receivedAction) async {
-  // TODO: Test this bs
   if (receivedAction.body!.contains('Download sucessful')) {
-    log('Open: ${_task.fileName}');
-    NativeToast().makeText(
-        message: 'Open:/n$savePath/${_task.fileName}',
-        duration: NativeToast.longLength);
-    //OpenFile.open('$savePath/${_task.fileName}');
+    OpenFile.open('$savePath/${receivedAction.title}');
     return;
   }
 
