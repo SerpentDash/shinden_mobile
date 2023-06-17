@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'package:collection/collection.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,9 @@ import 'package:flutter_session_manager/flutter_session_manager.dart';
 import 'package:flutter_web_browser/flutter_web_browser.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:html/parser.dart';
 import 'package:path/path.dart' as p;
+import 'package:deep_pick/deep_pick.dart';
 import 'package:android_path_provider/android_path_provider.dart';
 import 'package:sanitize_filename/sanitize_filename.dart';
 import 'package:file_sizes/file_sizes.dart';
@@ -30,9 +33,10 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:native_toast/native_toast.dart';
 import 'package:throttling/throttling.dart';
-import 'package:external_video_player_launcher/external_video_player_launcher.dart';
+import 'package:android_intent_plus/android_intent.dart';
 
 part 'download_kit.dart';
+part 'players_handler.dart';
 
 String css = "";
 List<String> hosts = [];
@@ -48,8 +52,10 @@ String tempRequest = "";
 final _appLinks = AppLinks();
 String appLink = '';
 
-Future main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  SessionManager().destroy();
 
   ByteData bytes = await rootBundle.load('assets/css/main.css');
   css = base64Encode(Uint8List.view(bytes.buffer));
@@ -59,8 +65,7 @@ Future main() async {
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     WebView.debugLoggingSettings.enabled = kDebugMode;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(
-        true); //kDebugMode);
+    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
@@ -102,7 +107,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     supportZoom: false,
     iframeAllowFullscreen: true,
     userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Chrome/98.0.4758.102 Firefox/113.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
   );
 
   PullToRefreshController? pullToRefreshController;
@@ -151,6 +156,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         appLink = '';
         return;
       }
+      // When user close external video player and focus on app, show shinden video info
+      // await SessionManager().get('mode').then((val) async {
+      //   if (val == 'stream') {
+      //     SessionManager().destroy();
+      //     webViewController!.reload();
+      //     // Future.delayed(const Duration(seconds: 1), () async {
+      //     //   webViewController!.evaluateJavascript(source: """
+      //     //     window.scrollTo({ top: 0, behavior: 'smooth' });
+      //     //     document.getElementsByClassName('info-aside-button-slide-open')[0].click();
+      //     //   """);
+      //     // });
+      //   }
+      // });
     }
   }
 
@@ -191,11 +209,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                             .canGoBack()
                             .then((value) => controller.goBack()));
 
-                    // SessionManager 'setter', 'getter', cleaner
-                    controller.addJavaScriptHandler(
-                        handlerName: 'mode_get',
-                        callback: (args) async =>
-                            await SessionManager().get('mode'));
+                    // SessionManager 'setter', cleaner
                     controller.addJavaScriptHandler(
                         handlerName: 'mode_set',
                         callback: (args) async =>
@@ -205,11 +219,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         callback: (args) async =>
                             await SessionManager().destroy());
 
-                    // Download / stream using direct link (eg cda, gdrive) | test download & notifications
+                    // Download / stream using js injection
                     controller.addJavaScriptHandler(
                         handlerName: 'download/stream',
                         callback: (args) async {
-                          //check if link is correct
+                          // Check if link is correct
                           await http
                               .head(Uri.parse(args[0]))
                               .then((value) async {
@@ -222,6 +236,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           });
                         });
 
+                    // From players_handler.dart
+                    // Handle cda player
+                    controller.addJavaScriptHandler(
+                        handlerName: 'open_cda',
+                        callback: (args) async {
+                          cdaPlayer(args[0], controller);
+                        });
+
+                    // Handle gdrive player
+                    controller.addJavaScriptHandler(
+                        handlerName: 'open_gdrive',
+                        callback: (args) async {
+                          gdrivePlayer(args[0], controller);
+                        });
+
+                    // Handle dood player (WIP)
+                    controller.addJavaScriptHandler(
+                        handlerName: 'open_dood',
+                        callback: (args) async {
+                          doodPlayer(args[0], controller);
+                        });
+
                     // Open url in external browser
                     controller.addJavaScriptHandler(
                         handlerName: 'open_in_browser',
@@ -229,11 +265,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           controller.goBack();
                           FlutterWebBrowser.openWebPage(url: args[0]);
                         });
-                    // remove show_info
-                    await Future.delayed(
-                        const Duration(seconds: 2),
-                        () => controller.evaluateJavascript(
-                            source: "localStorage.removeItem('show_info')"));
                   },
                   onLoadStart: (controller, url) async {
                     pullToRefreshController?.setEnabled(true);
@@ -260,23 +291,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                     }
 
                     // PLAYER PROVIDERS
-                    if (tempUrl.contains("ebd.cda"))
-                      setJS(controller, 'cda');
-                    else if (tempUrl.contains("drive.google"))
-                      setJS(controller, 'gdrive');
-                    else if (tempUrl.contains("dailymotion"))
-                      setJS(controller, 'dailymotion');
-                    else if (tempUrl.contains("sibnet"))
-                      setJS(controller, 'sibnet');
-                    else if (tempUrl.contains("streamtape") ||
-                        tempUrl.contains("streamadblockplus"))
-                      setJS(controller, 'streamtape');
-                    else if (tempUrl.contains("mega"))
-                      setJS(controller, 'mega.nz');
-                    else if (tempUrl.contains("mp4upload"))
-                      setJS(controller, 'mp4upload');
-                    else if (tempUrl.contains("yourupload"))
-                      setJS(controller, 'yourupload');
+                    setJS(
+                        controller,
+                        providers[providers.keys.firstWhereOrNull(
+                            (element) => tempUrl.contains(element))]);
                   },
                   shouldInterceptRequest: (controller, request) async {
                     tempRequest = request.url.toString();
@@ -322,6 +340,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         action: PermissionResponseAction.GRANT);
                   },
                   onEnterFullscreen: (controller) {
+                    // When using embeded video player
                     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive,
                         overlays: []);
                     AutoOrientation.landscapeAutoMode(forceSensor: true);
@@ -385,16 +404,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ],
         ),
       );
-    });
-  }
-
-  // add correct js file to
-  void setJS(controller, target) async {
-    await SessionManager().get('mode').then((val) async {
-      if (val != null) {
-        await controller.injectJavascriptFileFromAsset(
-            assetFilePath: 'assets/js/players/${target}_min.js');
-      }
     });
   }
 }

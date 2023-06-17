@@ -1,24 +1,16 @@
 (function() {
-    'use strict'; 
-
-    // Auto click button to show info after user ends watching video (easier access to stats of series)
-    window.onload = () => {
-        if(localStorage.getItem('show_info') == 'true') {
-            setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                document.getElementsByClassName('info-aside-button-slide-open')[0].click();
-                localStorage.removeItem('show_info');
-            }, 0)
-        }
-    }
-  
-    // Override buttons with new events when website is loaded
-    document.onreadystatechange = async () => {
-        if (document.readyState === 'interactive') {
-            overrideButtons(document.documentElement.textContent);
+    'use strict';
+    
+    new MutationObserver(function() {
+        if (document.readyState === "complete") this.disconnect();
+        // TODO: Test this.
+        // Get next element to make sure our target (previous element) is fully loaded
+        if (document.querySelector('.player-navigator-section')) {
+            this.disconnect();
+            setTimeout(() => overrideButtons(document.documentElement.textContent), 0);
             container = document.getElementsByClassName("player-online box")[0];
         }
-    };    
+    }).observe(document, { childList: true, subtree: true });
 
     async function getReq(url, callback = null) {
         await fetch(url, {credentials: 'include'}).then(async r => callback && callback(await r.text()));
@@ -83,7 +75,7 @@
                 normalBtn.classList.add('button');
                 normalBtn.dataset.old = '';
                 normalBtn.onclick = () => {
-                    setUI(normalBtn);
+                    selectButton(normalBtn);
                     getPlayer(data);
                 }
                 clone.after(normalBtn);
@@ -94,28 +86,28 @@
         // Set correct onclick to button
         const handleClick = (i, data, mode, buttonText) => {
             let btn = elements[i].querySelector('.button');
-            setUI(btn);
+            selectButton(btn);
             getPlayer(data);
             btn.innerText = buttonText;
-            if(mode) window.flutter_inappwebview.callHandler('mode_set', mode);
+            window.flutter_inappwebview.callHandler('mode_set', (current_mode = mode));
         };
 
         function getPlayer(d) {
-            data = JSON.parse(d); // e.target.getAttribute("data-episode");
+            data = JSON.parse(d);
             getReq(`https://api4.shinden.pl/xhr/${data.online_id}/player_load?auth=${key}`);
             countdown([data, key], 5);
         }
+    }
 
-        // select new button, hide old selected buttons
-        function setUI(btn) {
-            window.flutter_inappwebview.callHandler('mode_clear');
-            btn.classList.add('selected');
-            document.querySelectorAll('.button.selected').forEach(el => {
-                el.innerHTML = (el.dataset.old != null ? 'Pokaż' : "Wybierz <i class='fa fa-chevron-down'></i>");
-                if(el != btn) el.classList.remove('selected');
-                el.nextSibling.classList.remove('show');
-            });
-        }
+    // select new button, hide old selected buttons
+    function selectButton(btn) {
+        window.flutter_inappwebview.callHandler('mode_clear');
+        btn?.classList.add('selected');
+        document.querySelectorAll('.button.selected').forEach(el => {
+            el.innerHTML = (el.dataset.old != null ? 'Pokaż' : "Wybierz <i class='fa fa-chevron-down'></i>");
+            if(el != btn) el.classList.remove('selected');
+            el.nextSibling.classList.remove('show');
+        });
     }
 
     let container, timer;
@@ -129,30 +121,45 @@
         timer = setInterval(() => countdown(array, --time), 1000);
     }
 
+    let current_mode = '';
     // Set player with small changes
     async function replace(player) {
         // Get link to video
         let playerDOM = new DOMParser().parseFromString(player, 'text/html');
         let link = playerDOM.getElementsByTagName('iframe')[0] || playerDOM.querySelector('.button-player');
         link = link.src || link.href;
-        //console.log(link); 
+        console.log(link);
         
         // Open this link
-        localStorage.setItem('show_info', 'true');
         if(link.includes('mp4upload')) link = link.replace("embed-", "");
         if(link.includes('yourupload')) link = link.replace("embed", "watch");
-        location.assign(link);
 
-        // if(handledSites.find(el => link.includes(el))) {
-        //     return;
-        // }
+        if(current_mode != '') {
+            if(link.includes('cda')) {
+                window.flutter_inappwebview.callHandler('open_cda', link);
+                setTimeout(() => {
+                    selectButton(null);
+                    container.innerHTML = "";
+                }, 1000);
+                return;
+            }
+            if(link.includes('gdrive') || link.includes('drive.google')) {
+                window.flutter_inappwebview.callHandler('open_gdrive', link);
+                setTimeout(() => {
+                    selectButton(null);
+                    container.innerHTML = "";
+                }, 1000);
+                return;
+            }
+            // if(link.includes('dood')) {
+            //     window.flutter_inappwebview.callHandler('open_dood', link);
+            //     setTimeout(() => {
+            //         selectButton(null);
+            //         container.innerHTML = "";
+            //     }, 1000);
+            //     return;
+            // }
+        }
         
-        // container.innerHTML = player;
-
-        // let iframe = container.getElementsByTagName("iframe")[0];
-        // iframe.setAttribute("style", 'width: 100%; height: 100%; aspect-ratio: 12/8; border: none !important; display: block; margin: 0 auto;');
-        
-        // // fix wrong scale after fullscreen exit
-        // document.querySelector('meta[name="viewport"]').content = 'initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width';
-    }
+        location.assign(link);}
 })();

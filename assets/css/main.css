@@ -3,11 +3,12 @@
 .dropdown {position: relative; display: inline-block;}
 .dropdown.button {display: none;}
 .dropdown-content {display: none; position: absolute; background-color: #242424; z-index: 9999; width: 100%; box-shadow: white 0px 0px 10px;}
-.dropdown-content a { display: block; height: 1.5rem; line-height: 1.5rem;}
+.dropdown-content a { display: block; height: 1.7rem; line-height: 1.7rem;}
 .dropdown-content a:nth-child(odd) {background-color: transparent !important;}
 .dropdown-content a:nth-child(even) {background-color: #2f2f2f !important;}
 .dropdown-content a:hover { background-color: #303030; }
 .dropdown:hover .dropdown-content.show { display: block;}
+.dropdown > .button, .ep-buttons > .button {height: 1rem; line-height: 1rem; border-radius: 6px;}
 .button.selected { box-shadow: white 0px 0px 10px; }
 .ipprtcnt {display:none}
 .logo-title > img{ display: none; }
@@ -53,6 +54,7 @@ x-star-rating > .star::after {color: white !important}
 .figure-list>li {width:150px;}
 .figure-list>li>figure img{ height:225px; width:150px; }
 .t2t-delete{ display: none; }
+.button-group > .button {height: 1.1rem; line-height: 1.1rem; border-radius: 6px;}
 .button-wrapper {background: rgb(66, 66, 66) !important; margin-bottom: 20px;}
 .button-toolbar {background: unset !important; border: unset !important; width: 74.7%}
 .person-character-item{ width: 99%; padding: 0; }
@@ -88,7 +90,7 @@ a{ color:  #fff !important; }
 .top-button a:hover {text-decoration: none;}
 .top-bar .top-button img { margin: 0 12px; }
 .top-bar .top-button a { padding-right: 8px}
-.top-button--user .sprite {top: unset !important; left: 25px !important; bottom: 0; margin-left: 7px}
+.top-button--user .sprite {top: unset !important; left: 25px !important; bottom: 0; margin-left: 7px; background-color: #2f2f2f; border: none !important;}
 .tags li:hover a{ border:  1px solid #fff; color: #fff; background: #424242 }
 .user-navigation{ background: #424242; }
 .nav li:not(.is-active):hover{ background:#424242; }
@@ -177,7 +179,7 @@ p,pre{ margin: 1em 1vw; }
 .data-view-table-big.data-view-table-episodes.data-view-table-strips.data-view-hover tr {height: 42px;}
 .data-view-table-strips.data-view-table-big.data-view-hover tr {height: 42px; }
 .data-view-table-big { text-align:left; width: 100% !important }
-.data-view-table-big .ep-buttons{ padding: 0 0 0 10px; min-width: unset !important }
+.data-view-table-big .ep-buttons{ padding: 0 !important; min-width: unset !important }
 .data-view-table-big .ep-buttons a{ width: 100px}
 .data-view-table-big .ep-buttons a.slim{ padding: .3em .35em .375em !important }
 .data-view-table-big .ep-buttons a i{ pointer-events: none;}
@@ -187,9 +189,10 @@ p,pre{ margin: 1em 1vw; }
 .episodes > .head > tbody > tr > th:nth-child(3){ width: 75px; }
 .episodes > .head > tbody > tr > th:nth-child(4){ width: 52px; }
 .nav-main, .nav-user{ background: transparent; }
-h3.close-bar {background: #2f2f2f !important; color: white !important; margin: 0 7px 15px; border-radius: 10px;}
-h3.close-bar .info-aside-button-close {font-size: 16px;}
-h3.close-bar .info-aside-button-slide-open {font-size: 20px;}
+h3.close-bar {background: #2f2f2f !important; color: white !important; height: 3.5vh; margin: 1vh 2vw !important; border-radius: 10px;}
+h3.close-bar .info-aside-button-close {font-size: 2vh; background-color: rgb(255, 255, 255, .9)}
+h3.close-bar .info-aside-button-close > .fa-times {color: #474747;}
+h3.close-bar .info-aside-button-slide-open {font-size: 2.5vh}
 h3.close-bar {display: flex; align-items: center; justify-content: space-between; flex-flow: row-reverse; padding-left: 8px}
 .info-aside{ background: transparent !important; height: auto; transition:unset; }
 .info-aside > section{ max-height: unset !important; clear: both }
@@ -203,7 +206,7 @@ h1.page-title{ border: none; background: transparent ; padding: 0 10px; }
 p.message.error.box {padding: 0px !important;}
 .box.episode-player-list {padding: 0 0 5px 7px; overflow: visible;}
 .box.episode-player-list .table-responsive {overflow: visible;}
-.episode-player-list tbody tr td {font-size: 2.5vw !important;}
+.episode-player-list tbody tr td {font-size: 2.8vw !important;}
 .episode-player-list tbody tr td:first-child {padding-left: 10px}
 .box.player-navigator-section {padding: 0 0 5px 7px;}
 .box.episode-other-titles {padding: 0px 5px 0px 15px;}
@@ -215,6 +218,12 @@ p.message.error.box {padding: 0px !important;}
 .title-other, .episode-head{ background: transparent  }
 .episode-head small {font-size: medium !important; top: -.15em !important;}
 .title-threads {display: none;}
+.visible-hover {display: none;}
+.pull-right {font-size: 2.5vh; padding: 0 2vh; margin: 1vh 0;}
+.pull-right > .episode_online_watched {margin-right: 1rem;}
+[data-action] > .fa-plus-circle { position: relative;}
+.counterBadge {position: absolute; top: -.4rem; right: -.5rem; border-radius: 50px; background-color: red; color: white; font-size: 1.1rem; width: 1.1rem; height: 1.1rem; font-weight: 700;}
+.episode-head > .pull-right {display: none;}
 textarea{ background: rgba(0,0,0,0.1); color: #fff; }
 .fansub-ad-info { display: none; }
 button.as-link { color:white; }

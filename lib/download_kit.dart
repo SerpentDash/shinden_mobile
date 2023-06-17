@@ -63,8 +63,12 @@ void downloadOrStream(controller, url, fileName) async {
     switch (val) {
       case 'stream':
         if (ext != '') title = title.substring(0, title.length - ext.length);
-        await ExternalVideoPlayerLauncher.launchOtherPlayer(
-            url, MIME.video, {"title": title});
+        AndroidIntent(
+          action: 'action_view',
+          type: "video/*",
+          data: url,
+          arguments: {'title': title},
+        ).launch();
         break;
       case 'download':
         if (ext == '') title += '.mp4';
@@ -115,8 +119,7 @@ Future<void> initNotifications() async {
 
     log('[#] Awesome Notification initialized.');
 
-    // TODO: Add battery optimalization check
-    await Permission.ignoreBatteryOptimizations.request(); // ???
+    await Permission.ignoreBatteryOptimizations.request();
     await Permission.storage.request();
     await Permission.manageExternalStorage.request();
 

@@ -9,7 +9,6 @@ environment:
 dependencies:
   android_path_provider: ^0.3.0
   awesome_notifications: ^0.7.4+1
-  external_video_player_launcher: ^0.0.3
   file_sizes: ^1.0.6
   flutter:
     sdk: flutter
@@ -30,9 +29,11 @@ dependencies:
   path: any
   wakelock: ^0.6.2
   auto_orientation: ^2.3.1
-  nanoid: ^1.0.0
   app_links: ^3.4.3
   open_file_plus: ^3.4.1
+  android_intent_plus: ^4.0.1
+  html: ^0.15.4
+  deep_pick: ^1.0.0
 
 dev_dependencies:
   flutter_test:
