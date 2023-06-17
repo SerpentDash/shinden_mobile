@@ -65,6 +65,7 @@ void main() async {
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     WebView.debugLoggingSettings.enabled = kDebugMode;
+
     await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
 
