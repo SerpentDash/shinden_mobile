@@ -189,10 +189,10 @@ p,pre{ margin: 1em 1vw; }
 .episodes > .head > tbody > tr > th:nth-child(3){ width: 75px; }
 .episodes > .head > tbody > tr > th:nth-child(4){ width: 52px; }
 .nav-main, .nav-user{ background: transparent; }
-h3.close-bar {background: #2f2f2f !important; color: white !important; height: 3.5vh; margin: 1vh 2vw !important; border-radius: 10px;}
-h3.close-bar .info-aside-button-close {font-size: 2vh; background-color: rgb(255, 255, 255, .9)}
+h3.close-bar {background: #2f2f2f !important; color: white !important; height: 2rem; margin: .75rem 1rem !important; border-radius: 10px;}
+h3.close-bar .info-aside-button-close {font-size: 1rem; background-color: rgb(255, 255, 255, .9)}
 h3.close-bar .info-aside-button-close > .fa-times {color: #474747;}
-h3.close-bar .info-aside-button-slide-open {font-size: 2.5vh}
+h3.close-bar .info-aside-button-slide-open {font-size: 1.5rem}
 h3.close-bar {display: flex; align-items: center; justify-content: space-between; flex-flow: row-reverse; padding-left: 8px}
 .info-aside{ background: transparent !important; height: auto; transition:unset; }
 .info-aside > section{ max-height: unset !important; clear: both }
@@ -216,14 +216,15 @@ p.message.error.box {padding: 0px !important;}
 .data-view-table td, .data-view-table td.data-view-table-label {padding-left: 0 !important; padding-right: 5px !important;}
 .title-other, .episode-head{ padding: 0 10px; }
 .title-other, .episode-head{ background: transparent  }
-.episode-head small {font-size: medium !important; top: -.15em !important;}
 .title-threads {display: none;}
 .visible-hover {display: none;}
-.pull-right {font-size: 2.5vh; padding: 0 2vh; margin: 1vh 0;}
+.pull-right {font-size: 1.5rem; padding: 0 1rem; margin: 0.75rem 0;}
 .pull-right > .episode_online_watched {margin-right: 1rem;}
 [data-action] > .fa-plus-circle { position: relative;}
 .counterBadge {position: absolute; top: -.4rem; right: -.5rem; border-radius: 50px; background-color: red; color: white; font-size: 1.1rem; width: 1.1rem; height: 1.1rem; font-weight: 700;}
 .episode-head > .pull-right {display: none;}
+.episode-head small {font-size: medium !important; top: .1em !important; display: block;}
+.episode-type {display: block; position: unset !important; left: .7rem !important}
 textarea{ background: rgba(0,0,0,0.1); color: #fff; }
 .fansub-ad-info { display: none; }
 button.as-link { color:white; }
