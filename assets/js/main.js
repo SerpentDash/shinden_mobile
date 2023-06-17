@@ -247,12 +247,37 @@
         parent.children[1].classList.add('hide');
     }
 
-    // add shortcut to easilly set chapter as watched
-    function addWwatchedButtonShortcut() {
-        let clone = document.querySelector('[data-by="1"]').cloneNode(true);
-        clone.classList.remove("button");
-        clone.onclick = function() { this.style.pointerEvents = 'none'; this.style.filter = 'brightness(.5)' }
-        document.getElementsByClassName('pull-right')[0].prepend(clone);
+    // Add shortcut to 'watched episode' button and place parent in new position in DOM
+    function pullrightRedesign() {
+        let aside = document.querySelector('.info-aside'); // new parent for pull element
+        let pull = document.querySelector('.pull-right'); // parent for 'watched' button
+        
+        // make a copy of button and add event
+        // (button already have good icon so no need to set this up from the scratch)
+        let clone = document.querySelector('[data-by="1"]')?.cloneNode(true);
+        if(clone != null) { // if user is logged in
+            clone.classList.remove("button");
+            clone.removeAttribute('data-by')
+            clone.onclick = function() { 
+                document.querySelector('[data-by="1"]').click();
+                this.style.pointerEvents = 'none'; 
+                this.firstChild.style.color = '#474747'; // 
+            }
+            
+            let badge = document.createElement('span');
+            badge.classList.add('counterBadge');
+            badge.style.backgroundColor = "grey";
+            badge.textContent = document.querySelector('#view-cnt-value').textContent;
+            clone.firstChild.appendChild(badge);
+            
+            // add mutation observer to update badge counter when value changes
+            new MutationObserver((mutations) => 
+                mutations.forEach((mutation) => badge.textContent = mutation.target.textContent)
+            ).observe(document.querySelector('#view-cnt-value'), { characterData: false, attributes: false, childList: true, subtree: false });
+            
+            pull.prepend(clone);
+        }
+        if(pull) aside.prepend(pull);
     }
 
     // Sort table with videos (by video provider name and by date)
@@ -301,11 +326,12 @@
         };
     } */
 
-    // Run corresponding function when certain element exists in DOM
+    // Run the corresponding function when a certain element appears in the DOM
     let items = {
         '.top-bar--user': animeWatchList,
         '.top-button--user': topButtonEvent,
         '.slide': slideResize,
+        '.info-aside .title-small-info': pullrightRedesign,
         '.img media-title-cover season-tile': seasonTitle,
         '.episode-other-titles tbody': hideEmptyNameTranslations,
         '.current-season-tiles': reloadOWL,
@@ -318,26 +344,20 @@
         '.div-row': animeMangaImages,
         '.newSlider': fixBadImg,
         '.data-view-table-strips:not(.data-view-table-episodes)': sortTable,
-        '.title-coocreate': resizableCoocreate,
-        '[data-by="1"]':addWwatchedButtonShortcut
+        '.title-coocreate': resizableCoocreate
     };
 
-    Object.entries(items).forEach(([selector, callback]) => {
-        waitForElement(selector).then(() => setTimeout(callback, 0));
-    });
+    for (const [selector, callback] of Object.entries(items)) {
+        waitForElement(selector, callback);
+    }
 
-    function waitForElement(selector) {
-        return new Promise(resolve => {
-            new MutationObserver((mutations, observer) => {
-                if (document.readyState === "complete") observer.disconnect();
-                mutations
-                    .flatMap(mutation => [...mutation.addedNodes])
-                    .filter(node => node.matches && node.matches(selector))
-                    .forEach(target => {
-                        resolve(target);
-                        observer.disconnect();
-                    });
-            }).observe(document, { childList: true, subtree: true });
-        });
+    function waitForElement(selector, callback) {
+        new MutationObserver(function() {
+            if (document.readyState === "complete") this.disconnect();
+            if (document.querySelector(selector)) {
+                this.disconnect();
+                setTimeout(() => callback(), 0);
+            }
+        }).observe(document, { childList: true, subtree: true });
     }
 })();
