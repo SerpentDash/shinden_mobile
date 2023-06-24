@@ -9,6 +9,13 @@ google-analytics.com
 connect.facebook.net
 facebook.com
 static.criteo.net
+gum.criteo.com
+dingplague.com
+smartadserver.com
+ads.themoneytizer.com
+c.tmyzer.com
+adtrack.adleadevent.com
+newassets.hcaptcha.com
 d13k7prax1yi04.cloudfront.net
 cdn.jsdelivr.net/npm/fuckadblock
 c.adsco.re

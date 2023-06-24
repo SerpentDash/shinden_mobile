@@ -204,6 +204,7 @@ h3.close-bar {display: flex; align-items: center; justify-content: space-between
 .nav-main-sub{ background: unset; padding: unset !important;  }
 h1.page-title{ border: none; background: transparent ; padding: 0 10px; }
 p.message.error.box {padding: 0px !important;}
+[id^=sas] {display: none !important;}
 .box.episode-player-list {padding: 0 0 5px 7px; overflow: visible;}
 .box.episode-player-list .table-responsive {overflow: visible;}
 .episode-player-list tbody tr td {font-size: 2.8vw !important;}
