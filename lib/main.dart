@@ -284,7 +284,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           assetFilePath: "assets/js/main.js");
 
                       // ADD BYPASS JS
-                      if (tempUrl.contains("shinden.pl/episode")) {
+                      if (tempUrl.contains("shinden.pl/episode") ||
+                          tempUrl.contains("shinden.pl/epek")) {
                         await controller.injectJavascriptFileFromAsset(
                             assetFilePath: "assets/js/bypass.js");
                       }
