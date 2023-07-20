@@ -64,8 +64,8 @@ void main() async {
   LineSplitter.split(hostFile).forEach((line) => hosts.add(line));
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    WebView.debugLoggingSettings.enabled = kDebugMode;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
+    WebView.debugLoggingSettings.enabled = false;
+    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
@@ -284,7 +284,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           assetFilePath: "assets/js/main.js");
 
                       // ADD BYPASS JS
-                      if (tempUrl.contains("shinden.pl/episode")) {
+                      if (tempUrl.contains("shinden.pl/episode") ||
+                          tempUrl.contains("shinden.pl/epek")) {
                         await controller.injectJavascriptFileFromAsset(
                             assetFilePath: "assets/js/bypass.js");
                       }
