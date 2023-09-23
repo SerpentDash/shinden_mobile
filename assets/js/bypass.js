@@ -29,7 +29,8 @@
     ]//, 'streamsb', 'hqq', 'okru'];
     
     function overrideButtons(source) {
-        const key = source.match(/_Storage\.basic =  \'.*\'/)[0].substring(19).slice(0, -1);
+        //const key = source.match(/_Storage\.basic =  \'.*\'/)[0].substring(19).slice(0, -1);
+        const key = source.split(/_Storage\.basic = '/)[1].split("';")[0];
         let elements = document.getElementsByClassName("ep-buttons");
         let clone, data;
 

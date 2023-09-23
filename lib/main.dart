@@ -41,7 +41,7 @@ part 'players_handler.dart';
 String css = "";
 List<String> hosts = [];
 RegExp shindenRegex = RegExp(
-  r"(https|http)?:\/\/[a-zA-Z.0-9]{7,}\.(com|bid|info)\/[a-zA-Z.-]{1,}\.(js|htm|html|asp|aspx)",
+  r"(https|http)?:\/\/[a-zA-Z.0-9]{7,}\.(com|bid|info|xyz)\/[a-zA-Z.-]{1,}\.(js|htm|html|asp|aspx)",
   caseSensitive: false,
   multiLine: false,
 );
@@ -64,7 +64,7 @@ void main() async {
   LineSplitter.split(hostFile).forEach((line) => hosts.add(line));
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    WebView.debugLoggingSettings.enabled = false;
+    WebView.debugLoggingSettings.enabled = kDebugMode;
     await InAppWebViewController.setWebContentsDebuggingEnabled(true);
   }
 
@@ -307,6 +307,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         return WebResourceResponse();
                       }
                     }
+
+                    //log(tempRequest);
 
                     // Intercept requests to get direct stream links
                     // Dailymotion stream

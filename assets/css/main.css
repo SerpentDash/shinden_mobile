@@ -2,11 +2,12 @@
 /* Right now its complete mess and I don't have time (or will power) to clean this up */
 .dropdown {position: relative; display: inline-block;}
 .dropdown.button {display: none;}
-.dropdown-content {display: none; position: absolute; background-color: #242424; z-index: 9999; width: 100%; box-shadow: white 0px 0px 10px;}
-.dropdown-content a { display: block; height: 1.7rem; line-height: 1.7rem;}
-.dropdown-content a:nth-child(odd) {background-color: transparent !important;}
+.dropdown-content {display: none; position: absolute; z-index: 9999; width: 100%;}
+.dropdown-content a { display: block; height: 1.55rem; line-height: 1.55rem;}
+.dropdown-content a:nth-child(odd) {background-color: rgb(36, 36, 36) !important;}
 .dropdown-content a:nth-child(even) {background-color: #2f2f2f !important;}
 .dropdown-content a:hover { background-color: #303030; }
+.dropdown-content.show a { box-shadow: white 0px 0px 10px; }
 .dropdown:hover .dropdown-content.show { display: block;}
 .dropdown > .button, .ep-buttons > .button {height: 1rem; line-height: 1rem; border-radius: 6px;}
 .button.selected { box-shadow: white 0px 0px 10px; }
@@ -33,15 +34,18 @@
 #main-search {width: unset !important; margin-top: 0 !important;}
 .fancy-bar {background-color: unset !important;}
 .top-bar--nav-user {background: #424242 !important; right: 0 !important; border-radius: 10px; top: 41px !important; }
+.top-bar--user #login_form { display: none !important;}
 x-star-rating > .star::after {color: white !important}
 .user-navigation {background: transparent !important;}
 .user-navigation > li.active {background: #424242 !important; color: white; border-radius: 20px 20px 0 0;}
 .user-navigation > li.active a {background: #424242 !important; color: white;}
 .user-navigation > li.active ul {background: #424242 !important}
+.active ul a {background-color: unset !important}
 .aside-user ul.interactions li a {background-color: #424242 !important;}
 .tags-numbered a, .inline-tags-numbered a {background-image: unset !important; background: transparent !important}
 .box.unread-news.col5.push6 {width: 25vw; text-align: center; margin: 0 0 0 12px !important}
 .posts-last .add-post .buttons {border: none !important; width: 165px; padding: 0}
+.posts-last .more-link {display: flex; width: 100%; justify-content: end;}
 .newTitle {border-bottom: none !important}
 .push6 h3 {margin: 0 !important; padding: 0 !important;}
 .push6 span {margin: 0 !important; padding: 0 !important; top: 4px}
@@ -53,16 +57,23 @@ x-star-rating > .star::after {color: white !important}
 .figure-list>li>figure {width: unset !important;}
 .figure-list>li {width:150px;}
 .figure-list>li>figure img{ height:225px; width:150px; }
+.figure-list li {border: 2px solid white !important;}
+.figure-list li figure figcaption:last-of-type {color: unset !important; border-top: 2px solid white !important;}
 .t2t-delete{ display: none; }
+#saveWatchedEpisodes { color: unset !important; border: 2px solid white !important; box-shadow: unset !important;}
+.list-episode-checkboxes .button {color: unset !important; border: 2px solid white !important;}
 .button-group > .button {height: 1.1rem; line-height: 1.1rem; border-radius: 6px;}
+.button-group span.mobile-small-hidden {display: none !important;}
 .button-wrapper {background: rgb(66, 66, 66) !important; margin-bottom: 20px;}
 .button-toolbar {background: unset !important; border: unset !important; width: 74.7%}
 .person-character-item{ width: 99%; padding: 0; }
 .person-character-item .person img{ max-width: 70px; }
 .person-text{ max-width: 100px; }
+.page-content.page-episode-view {width: 100%;}
 .page-content.page-anime-recommendations > section > .media-list.box-scrollable.ps-container > .media.media-item > .img.media-title-cover{ max-width: 180px; background: unset !important; }
 .person-character-item .person-delete, .person-character-item .character-delete {display: none}
-.box-more .box-more-link {background-image: unset !important; padding: 0 !important}
+.box-more .box-more-link {background-image: unset !important; padding: 0 !important; color: unset !important; border: unset !important; box-shadow: unset !important; background-color: unset !important}
+.button-group .button {background-image: unset !important; padding: 2px !important; color: white !important; border: 2px solid white !important; box-shadow: unset !important; background-color: unset !important}
 .title-table .cover-col a{  height: 40vh; width: 13vw; border: none; }
 .mobile-open , .mobile-close{ background: #181818 !important }
 html { scrollbar-width: none; }
@@ -75,18 +86,21 @@ a{ color:  #fff !important; }
 .nav-main .nav-list > li a {padding: 8px 7px 9px 6px !important;}
 .nav-main-sub .nav-list { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; height: 65px; }
 .nav-main-sub .nav-list > li { flex-basis: 25%; }
+
 .nav-list > .is-active { background-color: rgb(100, 100, 100); border-radius: 10px; }
 .nav-main-sub .is-active{ border-radius: 6px; background-color: #424242; }
+.nav-main-sub .is-active > a {background: unset !important;}
 .nav-main-sub a:hover{ border-radius: 6px; }
 .top-bar{  background: #181818; height: 40px; width: 100%; position: fixed; z-index: 999;}
 .przycisk:hover {background: unset !important;}
-.top-bar--user {padding-top: 1%;}
 .top-bar--user #menu-search input{ border-radius: 6px; background:#424242 !important }
 .top-bar--user #menu-search button{ border-radius: 6px; margin-left: 5px; margin-right: 2px }
 .top-bar .top-button { border-radius: 6px; background: #424242 !important; margin: 0px 0px 0px 4px !important; padding: 0 !important; margin-left: 10px; }
 .login_form_open.top-button {padding: 0 10px !important}
-#login_form > #fb-login-link {width: 42%; margin: 5px; padding: 6px}
-#login_form > .button[name=login] {width: 42%; margin: 5px; padding: 6px}
+#login_form > #fb-login-link {width: 42%; margin: 5px; padding: 6px; color: unset !important; border: 2px solid white !important;}
+#login_form > .button[name=login] {width: 42%; margin: 5px; padding: 6px; color: unset !important; border: 2px solid white !important;}
+#login_form > #fb-login-link:hover {background-color: #323232 !important;}
+#login_form > .button[name=login]:hover {background-color: #323232 !important;}
 .top-button a:hover {text-decoration: none;}
 .top-bar .top-button img { margin: 0 12px; }
 .top-bar .top-button a { padding-right: 8px}
@@ -150,7 +164,8 @@ p,pre{ margin: 1em 1vw; }
 .col-sm-4.col-xs-12.box {display: none;}
 .col-sm-2 { height: 32vmin; width: 20%; position: relative; margin-left: 10px; }
 .col-sm-10 { width: 77%; }
-.seasons-list a { font-size: 2.5vw; height: 8vmin; display: flex; align-items: center; justify-content: center; margin-bottom:0;  background: unset; border-radius: 10px; transition: all .25s ease; }
+.seasons-list a { font-size: 2.5vw; height: 8vmin; display: flex; align-items: center; justify-content: center; margin-bottom:0; border-radius: 5px; transition: all .25s ease; background: unset !important; background-color: unset !important; color: unset !important; box-shadow: unset !important; border: unset !important; }
+.seasons-list a:hover {background-color: #323232 !important}
 .season-tile { height: 32vmin; width: 21.5vmin; border-radius: 7px; }
 .season-tile:not(:has(.owl-item)) { float: left; margin-left: 8px; margin-right: 8px; }
 .season-tile .tile-title { line-height: 0; font-size: 2.5vw; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: unset !important}
@@ -180,6 +195,8 @@ p,pre{ margin: 1em 1vw; }
 .data-view-table-strips.data-view-table-big.data-view-hover tr {height: 42px; }
 .data-view-table-big { text-align:left; width: 100% !important }
 .data-view-table-big .ep-buttons{ padding: 0 !important; min-width: unset !important }
+.data-view-table-big .ep-buttons a{ border: 2px solid white !important; color: unset !important; font-size: 2.5vw; font-weight: bold; }
+.data-view-table-big .ep-buttons a:hover { background-color: unset !important; box-shadow: unset !important }
 .data-view-table-big .ep-buttons a{ width: 100px}
 .data-view-table-big .ep-buttons a.slim{ padding: .3em .35em .375em !important }
 .data-view-table-big .ep-buttons a i{ pointer-events: none;}
@@ -203,7 +220,7 @@ h3.close-bar {display: flex; align-items: center; justify-content: space-between
 .info-top-table-highlight{ background: transparent  }
 .nav-main-sub{ background: unset; padding: unset !important;  }
 h1.page-title{ border: none; background: transparent ; padding: 0 10px; }
-p.message.error.box {padding: 0px !important;}
+p.message.error.box {padding: 0px !important; color: white; font-size: 3vw;}
 [id^=sas] {display: none !important;}
 .box.episode-player-list {padding: 0 0 5px 7px; overflow: visible;}
 .box.episode-player-list .table-responsive {overflow: visible;}
@@ -249,8 +266,10 @@ h2.box-title {padding-left: 10px;}
 .countdown {padding: 0 0 0 10px; float: left;}
 .tags li a{ border: 1px solid #fff }
 .posts-last .add-post {margin: 0px 15px 0px 12px !important;}
-.posts-last .add-post .buttons{ background-color:transparent; border-radius: 3px; border: 1px solid; border-top: transparent }
-.l-footer{ background: unset !important; color: #fff; padding-bottom : 0px; max-width:100%; border: none !important; margin-top: -25px; }
+.posts-last .add-post .buttons{ background-color: transparent !important; width: 100%;  }
+.posts-last .add-post .buttons > *{ color: unset !important; border: 2px solid white !important; }
+.l-footer{ background: unset !important; color: #fff; padding-bottom : 0px; max-width:100%; border: none !important;}
+.l-footer .row .col6:last-child .section-title {padding-bottom: 20px !important}
 .l-container-primary,.l-main-contantainer{ padding: 0px; margin-top: 5px;}
 .info{ display: none }
 .l-container-secondary{ background: transparent  }
@@ -258,11 +277,16 @@ h2.box-title {padding-left: 10px;}
 .button, .button:visited{ background: #424242 }
 .ch-st-list img {width: auto; height: 150px;}
 .ch-st-list .item-r, .ch-st-list .item-l {min-width: unset !important; max-width: 50%}
-.person-character-item .person img {max-width: unset; height: 150px;}
+.ch-st-list .ch-st-item {border: 2px solid white; min-height: 180px}
+.ch-st-list .ch-st-item .item-l .p-txt p {background-color: #555 !important; color: unset !important}
+.person-character-item .person img {max-width: unset; height: 150px; border: 2px solid #323232 !important;}
+.person-list .person-character-item {border: 2px solid white;}
+.person-list .person-character-item .person {min-height: 150px !important;}
 .ch-st-list .del-b {display: none;}
 .data-view-table-full td:first-child {width: 120px;}
 .figure-scrollable { overflow: auto !important; scrollbar-width: thin; scrollbar-color: #575757 transparent; }
-.title-rel .rel-item .rnd {background-color: #2f2f2f;}
+.title-rel .rel-item .rnd { background-color: #2f2f2f;}
+.title-rel .col-sm-6 .rel-item { border: 2px solid white;}
 .title-rel { padding: 0 15px}
 .l-container-primary, .l-main-contantainer{ background-color: #181818;  margin-top: 0 !important;}
 .l-main-contantainer{ padding-top: 5px; }

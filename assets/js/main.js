@@ -3,11 +3,12 @@
 
     // Watch list 2.0
     function animeWatchList() {
+
         // create new button (for anime watch list)
         let btn = document.createElement('button');
         btn.classList.add('btnWL')
         btn.innerHTML = "<i class='fa fa-list-ul'></i>";
-        document.querySelector('.top-bar--user').append(btn);
+        document.querySelector('.search-toggle').after(btn);
 
         btn.onclick = async () => {
             let target = document.getElementById('la');
