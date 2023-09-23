@@ -65,7 +65,7 @@ void main() async {
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     WebView.debugLoggingSettings.enabled = kDebugMode;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
+    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
