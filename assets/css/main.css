@@ -275,13 +275,16 @@ h2.box-title {padding-left: 10px;}
 .l-container-secondary{ background: transparent  }
 .button{ box-shadow: none; }
 .button, .button:visited{ background: #424242 }
-.ch-st-list img {width: auto; height: 150px;}
-.ch-st-list .item-r, .ch-st-list .item-l {min-width: unset !important; max-width: 50%}
-.ch-st-list .ch-st-item {border: 2px solid white; min-height: 180px}
-.ch-st-list .ch-st-item .item-l .p-txt p {background-color: #555 !important; color: unset !important}
-.person-character-item .person img {max-width: unset; height: 150px; border: 2px solid #323232 !important;}
-.person-list .person-character-item {border: 2px solid white;}
-.person-list .person-character-item .person {min-height: 150px !important;}
+.ch-st-list img { width: auto; height: 150px;}
+.ch-st-list .item-r, .ch-st-list .item-l { min-width: unset !important; max-width: 50%}
+.ch-st-list .ch-st-item { border: 2px solid white; min-height: 180px}
+.ch-st-list .ch-st-item .item-l img { z-index: 99;}
+.ch-st-list .ch-st-item .item-l .p-txt p { background-color: #555 !important; top: unset !important; bottom: 0; right: 0; left: 0; border-bottom-right-radius: 0.375rem; margin-left: auto; margin-right: auto; text-align: center; border-radius: 0 !important;}
+.ch-st-list .ch-st-item .item-r {position: unset !important;}
+.ch-st-list .ch-st-item .item-r img { display: block !important; width: initial; height: 100%; margin: 0; position: absolute; right: 0; top: 0; z-index: 99;}
+.person-character-item .person img { max-width: unset; height: 150px; border: 2px solid #323232 !important;}
+.person-list .person-character-item { border: 2px solid white;}
+.person-list .person-character-item .person { min-height: 150px !important;}
 .ch-st-list .del-b {display: none;}
 .data-view-table-full td:first-child {width: 120px;}
 .figure-scrollable { overflow: auto !important; scrollbar-width: thin; scrollbar-color: #575757 transparent; }
