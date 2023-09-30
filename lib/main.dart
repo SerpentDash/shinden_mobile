@@ -41,7 +41,7 @@ part 'players_handler.dart';
 String css = "";
 List<String> hosts = [];
 RegExp shindenRegex = RegExp(
-  r"(https|http)?:\/\/[a-zA-Z.0-9]{7,}\.(com|bid|info|xyz)\/[a-zA-Z.-]{1,}\.(js|htm|html|asp|aspx)",
+  r"(https|http)?:\/\/[a-zA-Z.0-9]{8,}\.(com|bid|info|xyz)\/[a-zA-Z.-]{1,}\.(js|htm|html|asp|aspx)",
   caseSensitive: false,
   multiLine: false,
 );
@@ -64,8 +64,8 @@ void main() async {
   LineSplitter.split(hostFile).forEach((line) => hosts.add(line));
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    WebView.debugLoggingSettings.enabled = kDebugMode;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
+    WebView.debugLoggingSettings.enabled = false;
+    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
@@ -251,12 +251,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           gdrivePlayer(args[0], controller);
                         });
 
-                    // Handle dood player (WIP)
+                    // Handle mp4upload player
                     controller.addJavaScriptHandler(
+                        handlerName: 'open_mp4upload',
+                        callback: (args) async {
+                          mp4uploadPlayer(args[0], controller);
+                        });
+
+                    // Handle dood player (WIP)
+                    /* controller.addJavaScriptHandler(
                         handlerName: 'open_dood',
                         callback: (args) async {
                           doodPlayer(args[0], controller);
-                        });
+                        }); */
 
                     // Open url in external browser
                     controller.addJavaScriptHandler(
@@ -308,7 +315,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       }
                     }
 
-                    //log(tempRequest);
+                    log(tempRequest);
 
                     // Intercept requests to get direct stream links
                     // Dailymotion stream
@@ -331,9 +338,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           request.url.pathSegments.last);
 
                     // MP4UPLOAD stream
-                    if (tempRequest.contains('mp4upload.com/files'))
+                    /* if (tempRequest.contains('a4.mp4upload.com/') &&
+                        !tempRequest.contains('.jpg')) {
                       downloadOrStream(controller, tempRequest,
                           request.url.pathSegments.last);
+                    } */
 
                     return null;
                   },

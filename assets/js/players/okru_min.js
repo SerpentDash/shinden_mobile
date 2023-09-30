@@ -1,11 +1,13 @@
 (function() {
     'use strict'; 
 
-/*     const sheet = new CSSStyleSheet();
+    const sheet = new CSSStyleSheet();
     sheet.replaceSync('html {opacity: 0}');
-    document.adoptedStyleSheets = [sheet]; */
+    document.adoptedStyleSheets = [sheet];
 
     window.addEventListener('DOMContentLoaded', async function() {   
+        setTimeout(() => window.flutter_inappwebview.callHandler('open_in_browser', `https://9xbud.com/${location.href}`), 0);
+        return
         let json = JSON.parse(document.querySelector('[data-options]').dataset.options);
         //console.log(JSON.parse(json.flashvars.metadata));
 

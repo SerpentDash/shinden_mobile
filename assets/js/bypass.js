@@ -21,6 +21,7 @@
         'sibnet', 
         'streamtape', 
         'dailymotion',
+        'dood',
         'gdrive', 
         'drive.google', 
         'mp4upload', 
@@ -62,6 +63,10 @@
                         _dropdown.children[1].children[2].remove();
                         break;
                     case 'yourupload': // only open external browser
+                    case 'mp4upload':
+                    case 'sibnet':
+                    case 'dood':
+                    case 'okru':
                     case 'mega': 
                         _dropdown.children[1].children[1].remove();
                         _dropdown.children[1].children[1].innerText = elements[i].parentElement.firstElementChild.innerText.toLowerCase() == 'mega' ? 'MegaAPP' : 'External Browser';
@@ -132,7 +137,7 @@
         console.log(link);
         
         // Open this link
-        if(link.includes('mp4upload')) link = link.replace("embed-", "");
+        if(link.includes('mp4upload')) link = link.replace("embed-", ""); //`https://9xbud.com/${link}`//
         if(link.includes('yourupload')) link = link.replace("embed", "watch");
 
         if(current_mode != '') {
@@ -152,6 +157,14 @@
                 }, 1000);
                 return;
             }
+            // if(link.includes('mp4upload.com/embed')) {
+            //     window.flutter_inappwebview.callHandler('open_mp4upload', link);
+            //     setTimeout(() => {
+            //         selectButton(null);
+            //         container.innerHTML = "";
+            //     }, 1000);
+            //     return;
+            // }
             // if(link.includes('dood')) {
             //     window.flutter_inappwebview.callHandler('open_dood', link);
             //     setTimeout(() => {

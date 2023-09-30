@@ -10,6 +10,7 @@ Map<String, String> providers = {
   "sibnet": "sibnet",
   "streamtape": "streamtape",
   "streamadblockplus": "streamtape",
+  "dood": "dood",
   "mega.nz": "mega",
   "mp4upload": "mp4upload",
   "yourupload": "yourupload",
@@ -96,6 +97,35 @@ void gdrivePlayer(url, controller) async {
 }
 
 // STILL WIP!!!
+void mp4uploadPlayer(url, controller) async {
+  var urlResponse = await http.get(Uri.parse(url));
+  var target =
+      urlResponse.body.toString().split('src: "')[1].split('"')[0].toString();
+
+  var titleResponse =
+      await http.get(Uri.parse(url.toString().replaceAll("embed-", '')));
+  var doc = parse(titleResponse.body);
+  var title = doc.querySelector(".name h4")?.innerHtml.toString();
+
+  target = target.replaceFirst("video.mp4", title!.replaceAll(' ', "%20"));
+
+  log('Title: $title\nTarget: $target');
+
+  log("1");
+  await http.get(Uri.parse(target)).then((value) {
+    log(value.toString());
+    log(value.body);
+  });
+  log("2");
+  await http.get(Uri.parse(target)).then((value) {
+    log(value.toString());
+    log(value.body);
+    downloadOrStream(controller, target, title);
+    FlutterWebBrowser.openWebPage(url: target);
+  });
+}
+
+
 void doodPlayer(url, controller) async {
   var r1 = await http.get(
     Uri.parse(url),
