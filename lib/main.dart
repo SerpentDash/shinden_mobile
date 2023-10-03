@@ -46,8 +46,29 @@ RegExp shindenRegex = RegExp(
   multiLine: false,
 );
 
+// TODO
+// test allowing only js from shinden (?) and cloudflare
+
+// auto retry download?
+
+final urlWhiteList = [
+  "shinden",
+  "gravatar",
+  "imgur",
+  "discordapp",
+  "gstatic",
+  "googleapis",
+  "cloudflare",
+  "jsdelivr",
+  "spolecznosci",
+  "youtube",
+  "ckeditor"
+];
+
+
 String tempUrl = "";
 String tempRequest = "";
+String tempWebsite = "";
 
 final _appLinks = AppLinks();
 String appLink = '';
@@ -65,7 +86,7 @@ void main() async {
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     WebView.debugLoggingSettings.enabled = false;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
+    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
@@ -306,6 +327,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   },
                   shouldInterceptRequest: (controller, request) async {
                     tempRequest = request.url.toString();
+
                     // Adblock
                     for (var i = 0; i < hosts.length; i++) {
                       if (tempRequest.contains(hosts.elementAt(i)) ||
@@ -315,6 +337,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       }
                     }
 
+                    // White list
+                    if (urlWhiteList.none((el) => tempRequest.contains(
+                            el)) /* &&
+                        [".xyz", ".js", ".css"]
+                            .any((el) => tempRequest.contains(el)) */
+                        ) {
+                      //log(' --- WARNING: Removing $tempRequest');
+                      NavigationActionPolicy.CANCEL;
+                      return WebResourceResponse();
+                    }
+
+                    //log("$tempUrl, $tempRequest");
                     log(tempRequest);
 
                     // Intercept requests to get direct stream links

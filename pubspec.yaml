@@ -1,7 +1,7 @@
 name: shinden_mobile
-description: Mobile application for shinden
+description: Unofficial mobile app for shinden.pl 
 publish_to: 'none'
-version: 0.0.3-1
+version: 0.0.3-2
 
 environment:
   sdk: '>=3.0.1 <4.0.0'
