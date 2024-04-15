@@ -34,6 +34,7 @@
 #main-search {width: unset !important; margin-top: 0 !important;}
 .fancy-bar {background-color: unset !important;}
 .top-bar--nav-user {background: #424242 !important; right: 0 !important; border-radius: 10px; top: 41px !important; }
+.top-bar--nav-user.active {border: none !important;}
 .top-bar--user #login_form { display: none !important;}
 x-star-rating > .star::after {color: white !important}
 .user-navigation {background: transparent !important;}
@@ -66,6 +67,7 @@ x-star-rating > .star::after {color: white !important}
 .button-group span.mobile-small-hidden {display: none !important;}
 .button-wrapper {background: rgb(66, 66, 66) !important; margin-bottom: 20px;}
 .button-toolbar {background: unset !important; border: unset !important; width: 74.7%}
+.person-character-text {z-index: 99; background-color: rgba(24,24,24,.3);}
 .person-character-item{ width: 99%; padding: 0; }
 .person-character-item .person img{ max-width: 70px; }
 .person-text{ max-width: 100px; }
@@ -93,6 +95,10 @@ a{ color:  #fff !important; }
 .nav-main-sub a:hover{ border-radius: 6px; }
 .top-bar{  background: #181818; height: 40px; width: 100%; position: fixed; z-index: 999;}
 .przycisk:hover {background: unset !important;}
+.form-login input {border: 2px solid white !important;}
+input {border: 2px solid white !important;}
+.button {border: 2px solid white !important; color: white !important;}
+.button:hover {background-color: grey !important;}
 .top-bar--user #menu-search input{ border-radius: 6px; background:#424242 !important }
 .top-bar--user #menu-search button{ border-radius: 6px; margin-left: 5px; margin-right: 2px }
 .top-bar .top-button { border-radius: 6px; background: #424242 !important; margin: 0px 0px 0px 4px !important; padding: 0 !important; margin-left: 10px; }
@@ -134,7 +140,7 @@ p,pre{ margin: 1em 1vw; }
 .carousel-pagination .is-active{ background: #fff }
 .carousel-pagination {top: unset !important; bottom: 0; display: none;}
 .carousel-slides li{padding-top: 15px; height: auto !important; }
-.error{ background: transparent; }
+.error{ border: 1px solid white !important; background-color: transparent !important }
 .timeline .event {border-bottom: 1px solid white;}
 .new-slider-wrapper{overflow: hidden; height: 59vmin !important; width: 100%; margin: auto; background: rgb(24, 24, 24); padding-top: 5px;}
 .newSlider {height: 40vw}
