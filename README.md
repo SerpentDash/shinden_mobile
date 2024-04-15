@@ -1,10 +1,10 @@
 
 # Shinden Mobile
 
-Hobby project that allows you to watch content from shinden.pl in mobile app.
+Hobby project that allows users to watch content from shinden.pl in mobile app.
 
 App was made for my own purposes.
-The project is far from perfect, but it should be usable.
+This project is far from perfect, but it should be usable.
 
 ## Status => W.I.P
 
@@ -18,8 +18,6 @@ Flutter shows webview with shinden webpage, injects css and js files to change h
 
 App allows you to watch videos from multiple providers (in highest available quality) in external video players.
 
-The app injects js that allows the extraction of a direct link to the video. In some cases app intercept requests to extract direct link.
-
 ## What's inside
 
 - Pure Dark Mode
@@ -27,9 +25,9 @@ The app injects js that allows the extraction of a direct link to the video. In 
 - Lot's of UI changes / fixes
 - AdBlock
 - New Watch List
-- App Link - open shinden link in app rather than in browser (enable in system settings first)
-- Stream to external video player (VLC, Mx Player etc) or download videos
-    - app handles some video providers like cda, gdrive, mp4upload, sibnet...
+- App Link - open shinden link in app rather than in browser (enable in system settings first!)
+- Stream to external video player (Next Player, VLC, MX Player etc) or download videos
+    - app handles some popular video providers
     - more to come (maybe)
 
 ## Screenshots

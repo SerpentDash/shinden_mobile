@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:collection/collection.dart';
+import 'package:ffmpeg_kit_flutter/ffprobe_kit.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,14 @@ import 'package:flutter_session_manager/flutter_session_manager.dart';
 import 'package:flutter_web_browser/flutter_web_browser.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'dart:math' show Random;
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/log.dart';
+import 'package:ffmpeg_kit_flutter/session.dart';
+import 'package:ffmpeg_kit_flutter/statistics.dart';
+
 import 'package:html/parser.dart';
 import 'package:path/path.dart' as p;
 import 'package:deep_pick/deep_pick.dart';
@@ -23,10 +32,7 @@ import 'package:sanitize_filename/sanitize_filename.dart';
 import 'package:file_sizes/file_sizes.dart';
 import 'package:random_string/random_string.dart';
 
-import 'package:wakelock/wakelock.dart';
 import 'package:app_links/app_links.dart';
-import 'package:auto_orientation/auto_orientation.dart';
-
 import 'package:open_file_plus/open_file_plus.dart';
 import 'package:simple_downloader/simple_downloader.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
@@ -40,15 +46,8 @@ part 'players_handler.dart';
 
 String css = "";
 List<String> hosts = [];
-RegExp shindenRegex = RegExp(
-  r"(https|http)?:\/\/[a-zA-Z.0-9]{8,}\.(com|bid|info|xyz)\/[a-zA-Z.-]{1,}\.(js|htm|html|asp|aspx)",
-  caseSensitive: false,
-  multiLine: false,
-);
 
-// TODO
-// test allowing only js from shinden (?) and cloudflare
-
+//TODO:
 // auto retry download?
 
 final urlWhiteList = [
@@ -65,7 +64,6 @@ final urlWhiteList = [
   "ckeditor"
 ];
 
-
 String tempUrl = "";
 String tempRequest = "";
 String tempWebsite = "";
@@ -76,6 +74,10 @@ String appLink = '';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await FlutterDownloader.initialize(debug: false, ignoreSsl: true);
+
+  FlutterDownloader.cancelAll();
+
   SessionManager().destroy();
 
   ByteData bytes = await rootBundle.load('assets/css/main.css');
@@ -85,13 +87,12 @@ void main() async {
   LineSplitter.split(hostFile).forEach((line) => hosts.add(line));
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    WebView.debugLoggingSettings.enabled = false;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
+    PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
+    await InAppWebViewController.setWebContentsDebuggingEnabled(
+        /* kDebugMode */ true);
   }
 
   savePath = '${await AndroidPathProvider.downloadsPath}/Shinden';
-
-  AutoOrientation.portraitUpMode();
 
   appLink = (await _appLinks.getInitialAppLink()).toString();
 
@@ -126,9 +127,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     verticalScrollBarEnabled: false,
     horizontalScrollBarEnabled: false,
     supportZoom: false,
-    iframeAllowFullscreen: true,
-    userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+    //userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
   );
 
   PullToRefreshController? pullToRefreshController;
@@ -167,7 +166,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
 
-    // Open shinden link in app (be sure to allow it in system settings)
+    // Open shinden link in app (be sure to allow it in system settings!)
     if (state == AppLifecycleState.resumed) {
       appLink = (await _appLinks.getLatestAppLink()).toString();
       if (appLink.isEmpty) return;
@@ -175,21 +174,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         webViewController?.loadUrl(
             urlRequest: URLRequest(url: WebUri(appLink)));
         appLink = '';
-        return;
       }
-      // When user close external video player and focus on app, show shinden video info
-      // await SessionManager().get('mode').then((val) async {
-      //   if (val == 'stream') {
-      //     SessionManager().destroy();
-      //     webViewController!.reload();
-      //     // Future.delayed(const Duration(seconds: 1), () async {
-      //     //   webViewController!.evaluateJavascript(source: """
-      //     //     window.scrollTo({ top: 0, behavior: 'smooth' });
-      //     //     document.getElementsByClassName('info-aside-button-slide-open')[0].click();
-      //     //   """);
-      //     // });
-      //   }
-      // });
     }
   }
 
@@ -206,9 +191,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 child: InAppWebView(
                   key: webViewKey,
                   initialUrlRequest: URLRequest(
-                      url: WebUri(appLink.contains('null')
+                    url: WebUri(
+                      appLink.contains('null')
                           ? "https://shinden.pl/"
-                          : appLink)),
+                          : appLink,
+                    ),
+                  ),
                   initialSettings: settings,
                   pullToRefreshController: pullToRefreshController,
                   onWebViewCreated: (controller) async {
@@ -240,52 +228,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         callback: (args) async =>
                             await SessionManager().destroy());
 
-                    // Download / stream using js injection
-                    controller.addJavaScriptHandler(
-                        handlerName: 'download/stream',
-                        callback: (args) async {
-                          // Check if link is correct
-                          await http
-                              .head(Uri.parse(args[0]))
-                              .then((value) async {
-                            controller.goBack();
-                            value.statusCode == 200
-                                ? downloadOrStream(controller, args[0], args[1])
-                                : controller.evaluateJavascript(
-                                    source:
-                                        'alert(`Video does not exist!\nChoose other player.`)');
-                          });
-                        });
-
                     // From players_handler.dart
-                    // Handle cda player
+                    // Add handlers for supported video providers
+                    for (var entry in playersHandlers) {
+                      controller.addJavaScriptHandler(
+                        handlerName: entry.key,
+                        callback: (args) async {
+                          entry.value(args[0], controller);
+                        },
+                      );
+                    }
+
+                    // Download / stream using url from video providers
                     controller.addJavaScriptHandler(
-                        handlerName: 'open_cda',
-                        callback: (args) async {
-                          cdaPlayer(args[0], controller);
+                      handlerName: 'download/stream',
+                      callback: (args) async {
+                        // Check if link is correct
+                        await http.head(Uri.parse(args[0])).then((value) async {
+                          controller.goBack();
+                          value.statusCode == 200
+                              ? downloadOrStream(controller, args[0], args[1])
+                              : controller.evaluateJavascript(
+                                  source:
+                                      'alert(`Video does not exist!\nChoose other player.`)');
                         });
-
-                    // Handle gdrive player
-                    controller.addJavaScriptHandler(
-                        handlerName: 'open_gdrive',
-                        callback: (args) async {
-                          gdrivePlayer(args[0], controller);
-                        });
-
-                    // Handle mp4upload player
-                    controller.addJavaScriptHandler(
-                        handlerName: 'open_mp4upload',
-                        callback: (args) async {
-                          mp4uploadPlayer(args[0], controller);
-                        });
-
-                    // Handle dood player (WIP)
-                    /* controller.addJavaScriptHandler(
-                        handlerName: 'open_dood',
-                        callback: (args) async {
-                          doodPlayer(args[0], controller);
-                        }); */
-
+                      },
+                    );
                     // Open url in external browser
                     controller.addJavaScriptHandler(
                         handlerName: 'open_in_browser',
@@ -318,85 +286,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                             assetFilePath: "assets/js/bypass.js");
                       }
                     }
-
-                    // PLAYER PROVIDERS
-                    setJS(
-                        controller,
-                        providers[providers.keys.firstWhereOrNull(
-                            (element) => tempUrl.contains(element))]);
                   },
                   shouldInterceptRequest: (controller, request) async {
                     tempRequest = request.url.toString();
 
                     // Adblock
                     for (var i = 0; i < hosts.length; i++) {
-                      if (tempRequest.contains(hosts.elementAt(i)) ||
-                          shindenRegex.hasMatch(tempRequest)) {
+                      if (tempRequest.contains(hosts.elementAt(i))) {
                         NavigationActionPolicy.CANCEL;
                         return WebResourceResponse();
                       }
                     }
 
                     // White list
-                    if (urlWhiteList.none((el) => tempRequest.contains(
-                            el)) /* &&
-                        [".xyz", ".js", ".css"]
-                            .any((el) => tempRequest.contains(el)) */
-                        ) {
-                      //log(' --- WARNING: Removing $tempRequest');
+                    if (urlWhiteList.none((el) => tempRequest.contains(el))) {
                       NavigationActionPolicy.CANCEL;
                       return WebResourceResponse();
                     }
 
                     //log("$tempUrl, $tempRequest");
-                    log(tempRequest);
-
-                    // Intercept requests to get direct stream links
-                    // Dailymotion stream
-                    if (tempRequest.contains('hd') &&
-                        tempRequest.contains('.m3u8'))
-                      downloadOrStream(controller, tempRequest,
-                          request.url.pathSegments.last);
-
-                    // Sibnet stream
-                    if (tempRequest.contains('sibnet') &&
-                        !tempRequest.contains('video.sibnet') &&
-                        tempRequest.contains('mp4'))
-                      downloadOrStream(controller, tempRequest,
-                          request.url.pathSegments.last);
-
-                    // Streamtape stream
-                    if (tempRequest.contains('tapecontent') &&
-                        tempRequest.contains('mp4'))
-                      downloadOrStream(controller, tempRequest,
-                          request.url.pathSegments.last);
-
-                    // MP4UPLOAD stream
-                    /* if (tempRequest.contains('a4.mp4upload.com/') &&
-                        !tempRequest.contains('.jpg')) {
-                      downloadOrStream(controller, tempRequest,
-                          request.url.pathSegments.last);
-                    } */
-
                     return null;
                   },
                   onPermissionRequest: (controller, request) async {
                     return PermissionResponse(
                         resources: request.resources,
                         action: PermissionResponseAction.GRANT);
-                  },
-                  onEnterFullscreen: (controller) {
-                    // When using embeded video player
-                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive,
-                        overlays: []);
-                    AutoOrientation.landscapeAutoMode(forceSensor: true);
-                    Wakelock.enable();
-                  },
-                  onExitFullscreen: (controller) {
-                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-                        overlays: SystemUiOverlay.values);
-                    AutoOrientation.portraitUpMode();
-                    Wakelock.disable();
                   },
                   onLoadStop: (controller, url) async {
                     pullToRefreshController?.endRefreshing();

@@ -1,32 +1,24 @@
 part of 'main.dart';
 
-// Providers for js injection
-// Check map 'key' to see if the url contains it,
-// and then use map 'value' as the 'target' in the subsequent function.
-Map<String, String> providers = {
-  //"ebd.cda": "cda",
-  //"drive.google": "gdrive",
-  "dailymotion": "dailymotion",
-  "sibnet": "sibnet",
-  "streamtape": "streamtape",
-  "streamadblockplus": "streamtape",
-  "dood": "dood",
-  "mega.nz": "mega",
-  "mp4upload": "mp4upload",
-  "yourupload": "yourupload",
-};
+//
+// Video providers that utilize requests from servers
+//
 
-// add correct js file
-void setJS(controller, target) async {
-  if (target == null) return;
-  await SessionManager().get('mode').then((val) async {
-    if (val == null) return;
-    await controller.injectJavascriptFileFromAsset(
-        assetFilePath: 'assets/js/players/${target}_min.js');
-  });
-}
-
-// Providers that utilize requests from servers
+const List<MapEntry<String, Function>> playersHandlers = [
+  MapEntry('open_cda', cdaPlayer),
+  MapEntry('open_gdrive', gdrivePlayer),
+  MapEntry('open_sibnet', sibnetPlayer),
+  MapEntry('open_streamtape', streamtapePlayer),
+  MapEntry('open_mp4upload', mp4uploadPlayer),
+  MapEntry('open_dood', doodPlayer),
+  MapEntry('open_dailymotion', dailymotionPlayer),
+  MapEntry('open_supervideo', supervideoPlayer),
+  MapEntry('open_vk', vkPlayer),
+  MapEntry('open_okru', okruPlayer),
+  MapEntry('open_yourupload', youruploadPlayer),
+  MapEntry('open_aparat', aparatPlayer),
+  MapEntry('open_default', defaultPlayer),
+];
 
 void cdaPlayer(url, controller) async {
   var response = await http.get(Uri.parse(url));
@@ -91,68 +83,566 @@ void gdrivePlayer(url, controller) async {
   final id = regex.allMatches(uri.path).map((str) => str.group(1)).single;
 
   final target =
-      "${uri.scheme}://${uri.host}/uc?id=$id&confirm=t&export=download";
+      "https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t";
+  //"${uri.scheme}://${uri.host}/uc?id=$id&confirm=t&export=download";
 
   downloadOrStream(controller, target, title);
 }
 
-// STILL WIP!!!
+void sibnetPlayer(url, controller) async {
+  var r1 = await http.get(Uri.parse(url));
+
+  // Get video url
+  RegExp urlRegExp = RegExp(r'player.src\(\[\{src: "(.*?)",');
+  String? urlMatch = urlRegExp.firstMatch(r1.body)?.group(1);
+  log("http://video.sibnet.ru$urlMatch");
+
+  // Get video title
+  RegExp titleRegExp = RegExp(r"title: '([^']+)'");
+  String? titleMatch = titleRegExp.firstMatch(r1.body)?.group(1);
+
+  // Send request for direct link
+  Dio dio = Dio();
+  final r2 = await dio.head(
+    "https://video.sibnet.ru$urlMatch",
+    options: Options(
+      validateStatus: (status) => true,
+      headers: {"referer": "$url"},
+    ),
+  );
+
+  // Format direct link
+  var directLink = r2.realUri.toString();
+  log(directLink);
+
+  downloadOrStream(controller, "https:$directLink", titleMatch);
+}
+
+void streamtapePlayer(url, controller) async {
+  var response = await http.get(Uri.parse(url));
+  final responseBody = response.body;
+
+  // Find first occurrence of 'robotlink'
+  int r1 = responseBody.indexOf('robotlink');
+
+  // Video not found
+  if (r1 == -1) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Find second occurrence of 'robotlink'
+  int r2 = responseBody.indexOf('robotlink', r1 + 1);
+
+  // Find start and end index of url
+  int linkStart = responseBody.indexOf("'//", r2 + 1);
+  int linkEnd = responseBody.indexOf("')", linkStart);
+
+  // Extract url
+  String encrypted = responseBody.substring(linkStart + 3, linkEnd);
+
+  // Extract clear url
+  List<String> parts = encrypted.split("'+ ('");
+  String clearUrl = parts[0] + parts[1].substring(3);
+  log(clearUrl);
+
+  // Send request for direct link
+  Dio dio = Dio();
+  final head = await dio.head(
+    "https://$clearUrl&stream=1",
+    options: Options(
+      validateStatus: (status) => true,
+      headers: {"referer": "$url"},
+    ),
+  );
+  log(head.realUri.toString());
+
+  // Get title
+  int titleStart =
+      responseBody.indexOf('"showtitle":"') + '"showtitle":"'.length;
+  int titleEnd = responseBody.indexOf('"', titleStart);
+
+  String title = responseBody.substring(titleStart, titleEnd);
+
+  downloadOrStream(controller, head.realUri.toString(), title);
+}
+
 void mp4uploadPlayer(url, controller) async {
-  var urlResponse = await http.get(Uri.parse(url));
-  var target =
-      urlResponse.body.toString().split('src: "')[1].split('"')[0].toString();
+  RegExp regex = RegExp(r"/([^/]+)\.html");
+  var id = regex.firstMatch(url)?.group(1);
 
-  var titleResponse =
-      await http.get(Uri.parse(url.toString().replaceAll("embed-", '')));
-  var doc = parse(titleResponse.body);
-  var title = doc.querySelector(".name h4")?.innerHtml.toString();
+  var response = await http.post(
+    Uri.parse(url),
+    body:
+        "op=download2&id=$id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
+    headers: {
+      "Referer": url,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+  );
 
-  target = target.replaceFirst("video.mp4", title!.replaceAll(' ', "%20"));
+  final target = response.headers.entries.elementAt(1).value;
 
-  log('Title: $title\nTarget: $target');
+  RegExp regExp = RegExp(r'^(.+)\.mp4$');
+  final title = regExp.firstMatch(target.split('/').last)?.group(1) ?? "video";
 
-  log("1");
-  await http.get(Uri.parse(target)).then((value) {
-    log(value.toString());
-    log(value.body);
+  log("Title: $title, Target: $target");
+
+  await Permission.notification.isDenied.then((value) {
+    if (value) Permission.notification.request();
   });
-  log("2");
-  await http.get(Uri.parse(target)).then((value) {
-    log(value.toString());
-    log(value.body);
-    downloadOrStream(controller, target, title);
-    FlutterWebBrowser.openWebPage(url: target);
+
+  final taskId = await FlutterDownloader.enqueue(
+    url: target,
+    fileName: "$title.mp4",
+    headers: {"referer": "$url"},
+    savedDir: savePath,
+    showNotification: true,
+    openFileFromNotification: true,
+  );
+
+  // Won't work without passing headers
+  //downloadOrStream(controller, target, title);
+}
+
+void doodPlayer(url, controller) async {
+  var r1 = await http.get(Uri.parse(url));
+  final body = r1.body;
+
+  final newUrl = url.toString().replaceFirst("dood.yt", "d0000d.com");
+  /* r1.headers.entries.firstWhere((element) => element.key == "domain").value; */
+  log("newUrl: $newUrl");
+
+/*   final watchRegex = RegExp(r'\/dood\?op=watch[^"]+');
+  final watch = watchRegex.firstMatch(body)?.group(0);
+  log("watch: $watch");
+
+  if (watch == null) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  } 
+  log('request 2: https://d0000d.com${watch}1&ref2=&adb=0&ftor=0');
+  var r2 = await http.get(
+    Uri.parse("https://d0000d.com${watch}1&ref2=&adb=0&ftor=0"),
+    headers: {"Referer": newUrl},
+  */
+
+  final md5Regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
+  final md5 = md5Regex
+      .allMatches(body)
+      .map((str) => str.group(0))
+      .single
+      ?.replaceAll("'", '');
+  log("MD5: $md5");
+
+  final tokenRegex = RegExp(r'token=([^&]+)');
+  final token = tokenRegex.firstMatch(body)!.group(1);
+  log("Token: $token");
+
+  log('request 3: https://d0000d.com$md5');
+  var r3 = await http
+      .get(Uri.parse("https://d0000d.com$md5"), headers: {"Referer": newUrl});
+
+  final direct = "${r3.body}${generateRandomString(token)}";
+
+  RegExp titleRegex = RegExp(r'<title>(.*?)</title>');
+  final title =
+      titleRegex.firstMatch(body)?.group(1)!.replaceAll(" - DoodStream", "");
+
+  await Permission.notification.isDenied.then((value) {
+    if (value) Permission.notification.request();
+  });
+  final taskId = await FlutterDownloader.enqueue(
+    url: direct,
+    fileName: "$title.mp4",
+    headers: {"referer": "$url"},
+    savedDir: savePath,
+    showNotification: true,
+    openFileFromNotification: true,
+  );
+
+  // Won't work without passing headers
+  //downloadOrStream(controller, direct, "aadfdf");
+}
+
+void dailymotionPlayer(url, controller) async {
+  RegExp regExp = RegExp(r'\/video\/([^?/]+)');
+  final id = regExp.firstMatch(url)!.group(1);
+
+  var jsonResponse = await http.get(
+    Uri.parse("https://www.dailymotion.com/player/metadata/video/$id"),
+    headers: {"Referer": "https://www.dailymotion.com/"},
+  );
+
+  Map<String, dynamic> json = jsonDecode(jsonResponse.body);
+
+  final title = json['title'];
+
+  final target = json["qualities"]["auto"][0]["url"];
+
+  var m3uResponse = await http.get(
+    Uri.parse(target),
+    headers: {
+      "Referer": "https://www.dailymotion.com/",
+    },
+  );
+
+  RegExp pattern = RegExp(r'PROGRESSIVE-URI="([^"]*)"');
+
+  final direct = pattern.allMatches(m3uResponse.body).last.group(1);
+
+  downloadOrStream(controller, direct, title);
+}
+
+void supervideoPlayer(url, controller) async {
+  //url = url.replaceFirst("tv", "cc");
+
+  /* var response = await http.get(Uri.parse(url), headers: {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'
+  }); */
+
+  // Send request for direct link
+  Dio dio = Dio();
+  final response = await dio.get(
+    url,
+    options: Options(
+      validateStatus: (status) => true,
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'
+      },
+    ),
+  );
+
+  final body = response.data;
+
+  RegExp idRegex = RegExp(r"urlset\|([^']*)");
+  final ids = idRegex.firstMatch(body)!.group(1);
+
+  List<String>? parts = ids?.split("|");
+  String id = parts![2] + parts[0];
+
+  RegExp hostRegex = RegExp(r"serversicuro\|([^|]*)");
+  final host = hostRegex.firstMatch(body)!.group(1);
+
+  final direct = "https://$host.serversicuro.cc/hls/$id/index-v1-a1.m3u8";
+  log(direct);
+
+  await SessionManager().get('mode').then((val) async {
+    Uri u = Uri.parse(url);
+    final title = u.pathSegments[u.pathSegments.length - 2];
+
+    switch (val) {
+      case 'stream':
+        AndroidIntent(
+          action: 'action_view',
+          type: "video/*",
+          data: direct,
+          arguments: {'title': title},
+        ).launch();
+        break;
+      case 'download':
+        FFprobeKit.getMediaInformation(url).then((session) async {
+          /*  final information = await session.getMediaInformation();
+          double maxDuration = 0;
+
+          if (information == null) {
+            final temp = await session.getDuration();
+            maxDuration = double.tryParse(temp.toString())!;
+          } else {
+            maxDuration =
+                double.tryParse(information?.getDuration().toString() ?? "") ??
+                    0;
+          }
+          maxDuration *= 1000;
+
+          log(maxDuration.toString()); */
+          log("$savePath/$title.mp4");
+          await FFmpegKit.executeAsync(
+              '-threads 4 -i $direct -c copy $savePath/$title.mp4',
+              // 1431.787000
+              // getTime: 1431765.333
+              (Session session) {
+            log("Done");
+          }, (Log logg) {
+            log(logg.getMessage());
+          }, (Statistics statistics) {
+            //log("Progress: ${statistics.getTime()}/$maxDuration | ${statistics.getTime() / maxDuration}");
+          });
+        });
+        break;
+      default:
+        break;
+    }
   });
 }
 
-
-void doodPlayer(url, controller) async {
-  var r1 = await http.get(
-    Uri.parse(url),
-  );
-  log(r1.toString());
-  log(r1.statusCode.toString());
-  log(r1.headers.toString());
-  final body = r1.body;
-  //log(body);
-  final regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
-  final id = regex.allMatches(body).map((str) => str.group(0)).single;
-  log(id.toString());
-  var r2 = await http.get(Uri.parse("https://dood.yt/$id"), headers: {
-    "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-    "Accept": "*/*",
-    "Accept-Language": "pl,en-US;q=0.7,en;q=0.3",
-    "X-Requested-With": "XMLHttpRequest",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-GPC": "1",
-    "Referrer": "https://dood.yt",
-    "Cookie": "lang=1"
+void vkPlayer(url, controller) async {
+  var response = await http.get(Uri.parse(url), headers: {
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
   });
-  log(r2.toString());
-  log(r2.statusCode.toString());
-  log(r2.headers.toString());
-  log(r2.body);
+  final body = response.body;
+
+  // Find url any valid video link (starting from the highest quality)
+  String direct = "";
+  final qualities = ['url1080', 'url720', 'url480'];
+  for (String key in qualities) {
+    if (body.contains(key)) {
+      int keyIndex = body.indexOf(key);
+      direct = body
+          .substring(keyIndex + key.length)
+          .split('"')[2]
+          .replaceAll("\\/", "/");
+      break;
+    }
+  }
+
+  if (direct.isEmpty) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Find title
+  int titleIndex = body.indexOf('md_title');
+  String title = body.substring(titleIndex + 'md_title'.length).split('"')[2];
+
+  await File("$savePath/$title.mp4").exists().then((value) {
+    if (value) title = "$title [${DateTime.now().toString()}]";
+  });
+
+  log("Title: $title, Target: $direct");
+  downloadOrStream(controller, direct, title);
+}
+
+void okruPlayer(url, controller) async {
+  var response = await http.get(Uri.parse(url), headers: {
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+  });
+  String body = response.body;
+
+  body = body
+      .replaceAll("\\", "")
+      .replaceAll("u0026", "&")
+      .replaceAll("&quot;", '"')
+      .replaceAll("%3B", ";");
+
+  // Find any valid video link (starting from the highest quality)
+  String direct = "";
+  final qualities = ['full', 'hd', 'sd'];
+  for (var key in qualities) {
+    int keyIndex = body.indexOf('"name":"$key"');
+
+    // If 'key' not found, iterate over next 'key'
+    if (keyIndex == -1) continue;
+
+    int urlIndexStart = body.indexOf('"url":"', keyIndex);
+    int urlIndexEnd = body.indexOf('"', urlIndexStart + 7);
+
+    // Extract the URL substring
+    direct = body.substring(urlIndexStart + 7, urlIndexEnd);
+  }
+
+  if (direct.isEmpty) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Find title
+  RegExp exp = RegExp(r'"title":"([^"]+)"');
+  String title = exp.firstMatch(body)!.group(1)!;
+
+  await File("$savePath/$title.mp4").exists().then((value) {
+    if (value) title = "$title [${DateTime.now().toString()}]";
+  });
+
+  log("Title: $title, Target: $direct");
+  downloadOrStream(controller, direct, title);
+}
+
+void youruploadPlayer(url, controller) async {
+  var r1 = await http.get(Uri.parse(url));
+  final doc1 = parse(r1.body);
+
+  final title =
+      doc1.querySelector('title')!.innerHtml.replaceFirst("Downloading ", "");
+
+  RegExp regExp = RegExp(r'\/download\?file=\d+');
+  final urlWithoutToken =
+      'https://www.yourupload.com${regExp.firstMatch(r1.body)!.group(0)!}';
+
+  // Trigger download (without token)
+  var r2 = await http.get(
+    Uri.parse(urlWithoutToken),
+    headers: {"referer": url},
+  );
+
+  // Get donwload link with token
+  final doc2 = parse(r2.body);
+  final urlWithToken =
+      'https://www.yourupload.com${doc2.querySelector('[data-url]')!.attributes['data-url']}';
+
+  log("Title: $title, Target: $urlWithToken");
+
+  await Permission.notification.isDenied.then((value) {
+    if (value) Permission.notification.request();
+  });
+
+  // Trigger download (with token)
+  final taskId = await FlutterDownloader.enqueue(
+    url: urlWithToken,
+    fileName: title,
+    headers: {"referer": urlWithoutToken},
+    savedDir: savePath,
+    showNotification: true,
+    openFileFromNotification: true,
+  );
+
+  // Won't work without passing headers
+  //downloadOrStream(controller, response2.realUri.toString(), "title");
+}
+
+void aparatPlayer(url, controller) async {
+  var response = await http.get(Uri.parse(url));
+
+  final body = response.body;
+
+  RegExp regExp = RegExp(r'file:\s*\"(.*?)\"');
+
+  final direct = regExp.firstMatch(body)!.group(1)!;
+  log(direct);
+
+  await SessionManager().get('mode').then((val) async {
+    Uri u = Uri.parse(url);
+    final title = u.pathSegments[u.pathSegments.length - 1];
+
+    switch (val) {
+      case 'stream':
+        AndroidIntent(
+          action: 'action_view',
+          type: "video/*",
+          data: direct,
+          arguments: {'title': title},
+        ).launch();
+        break;
+      case 'download':
+        await FFmpegKit.executeAsync(
+            '-threads 4 -i $direct -c copy $savePath/$title.mp4',
+            (Session session) {
+          log("Done");
+        }, (Log logg) {
+          log(logg.getMessage());
+        }, (Statistics statistics) {
+          log(statistics.getTime().toString());
+        });
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+void defaultPlayer(url, controller) async {
+  var response = await http.get(Uri.parse(url), headers: {
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+  });
+  final body = response.body;
+
+  // Get obfuscated url
+  String pattern = r'2d://([^"]*)';
+  RegExp regExp = RegExp(pattern);
+  RegExpMatch? match = regExp.firstMatch(body);
+  String obfuscatedUrl = "https://${match!.group(1) ?? "null"}";
+
+  if (obfuscatedUrl.contains("null")) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Get big array with values to replace obfuscated url
+  String pattern2 = r"'\|(.*?)\.split\('\|'\)";
+  RegExp regExp2 = RegExp(pattern2);
+  RegExpMatch? matches = regExp2.firstMatch(body);
+  List<String> array = "|${matches!.group(1)}".split('|');
+
+  // Get radix-36 values from obfuscated url
+  RegExp regex = RegExp(r'\b[a-z0-9]{2}\b');
+  Iterable<RegExpMatch> matches2 = regex.allMatches(obfuscatedUrl);
+
+  // Find replacement from array
+  List<List<int>> replacements = [];
+  for (RegExpMatch match in matches2) {
+    String matchStr = match.group(0)!;
+    int value = int.parse(matchStr, radix: 36);
+    if (value >= 0 && array[value] != '') {
+      replacements.add([match.start, match.end, value]);
+    }
+  }
+
+  // Replace radix-36 values with replacements
+  String direct = obfuscatedUrl;
+  replacements.sort((a, b) => b[0].compareTo(a[0]));
+  for (List<int> replacement in replacements) {
+    int start = replacement[0];
+    int end = replacement[1];
+    int newValue = replacement[2];
+    direct = direct.replaceRange(start, end, array[newValue]);
+  }
+
+  log(direct);
+
+  await SessionManager().get('mode').then((val) async {
+    Uri u = Uri.parse(url);
+    final title = u.pathSegments[u.pathSegments.length - 1];
+
+    switch (val) {
+      case 'stream':
+        AndroidIntent(
+          action: 'action_view',
+          type: "video/*",
+          data: direct,
+          arguments: {'title': title},
+        ).launch();
+        break;
+      case 'download':
+        direct = direct
+            .replaceFirst(",h,o,.urlset", "h")
+            .replaceFirst("master", "index-v1-a1");
+        await FFmpegKit.executeAsync(
+            '-threads 4 -i $direct -c copy $savePath/$title.mp4',
+            (Session session) {
+          log("Done");
+        }, (Log logg) {
+          log(logg.getMessage());
+        }, (Statistics statistics) {
+          log(statistics.getTime().toString());
+        });
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+//Helper function for dood provider
+String generateRandomString(token) {
+  var result = '';
+  var characters =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var charLength = characters.length;
+  var random = Random();
+
+  for (var i = 0; i < 10; i++) {
+    result += characters[random.nextInt(charLength)];
+  }
+
+  return '$result?token=$token&expiry=${DateTime.now().millisecondsSinceEpoch}';
 }

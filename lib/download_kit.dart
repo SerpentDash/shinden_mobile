@@ -123,6 +123,10 @@ Future<void> initNotifications() async {
     await Permission.storage.request();
     await Permission.manageExternalStorage.request();
 
+    await Permission.notification.isDenied.then((value) {
+      if (value) Permission.notification.request();
+    });
+
     log('[#] Permissions requested');
   }
 }
