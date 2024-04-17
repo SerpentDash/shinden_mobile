@@ -317,7 +317,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   },
                   onReceivedError: (controller, request, error) async {
                     pullToRefreshController?.endRefreshing();
-                    if (error.type.toString() != "UNKNOWN")
+                    if (error.type.toString() != "UNKNOWN" || request.isForMainFrame == true)
                       await controller.injectJavascriptFileFromAsset(
                           assetFilePath: 'assets/js/error.js');
                   },
