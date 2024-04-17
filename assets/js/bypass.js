@@ -29,9 +29,9 @@
         { name: 'vk', handler: 'open_vk' },
         { name: 'okru', handler: 'open_okru' },
         { name: 'yourupload', handler: 'open_yourupload' },
-        { name: 'aparat', handler: 'open_aparat' }, // aka wolfstream
-        { name: 'default', handler: 'open_default' }, // aka filemoon
-        { name: 'mega', handler: 'open_in_browser' },
+        { name: 'aparat', host: "wolfstream", handler: 'open_aparat' },
+        { name: 'default', host: "filemoon", handler: 'open_default' },
+        { name: 'mega', handler: 'open_in_browser' }, // WIP
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
@@ -147,7 +147,7 @@
         // Pass url to supported handlers
         if (current_mode != '') {
             for (const provider of providers) {
-                if (link.includes(provider.name)) {
+                if ((provider?.host && link.includes(provider.host)) || link.includes(provider.name)) {
                     window.flutter_inappwebview.callHandler(provider.handler, link);
                     setTimeout(() => {
                         selectButton(null);

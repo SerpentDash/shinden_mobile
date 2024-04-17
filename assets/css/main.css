@@ -158,6 +158,7 @@ p,pre{ margin: 1em 1vw; }
 .sliderButtons a:hover { background: #181818;  }
 .slide .sliderLink { height: 100%; width: 100%; left: 0 !important; right: 0 !important; }
 .slide section { font-size: 2.5vw; display: block !important;}
+.machine-translation {font-family: system-ui; font-weight: 900; color: white; text-shadow: 0 0 4px black, 2px 2px 4px black }
 .box-title .icon, .themed-icon{ background: none; }
 .box-texts .box-scrollable { max-height: unset;}
 .staff-chars{ width: 35%; float: left; }

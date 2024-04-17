@@ -556,10 +556,9 @@ void defaultPlayer(url, controller) async {
   final body = response.body;
 
   // Get obfuscated url
-  String pattern = r'2d://([^"]*)';
-  RegExp regExp = RegExp(pattern);
+  RegExp regExp = RegExp(r'\"\d[a-z]://([^"]*)');
   RegExpMatch? match = regExp.firstMatch(body);
-  String obfuscatedUrl = "https://${match!.group(1) ?? "null"}";
+  String obfuscatedUrl = "https://${match?.group(1) ?? "null"}";
 
   if (obfuscatedUrl.contains("null")) {
     controller.evaluateJavascript(
