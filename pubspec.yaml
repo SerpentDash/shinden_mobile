@@ -1,43 +1,30 @@
 name: shinden_mobile
 description: Unofficial mobile app for shinden.pl 
 publish_to: 'none'
-version: 0.0.4
+version: 0.0.5
 
 environment:
-  sdk: '>=3.0.1 <4.0.0'
+  sdk: '>=3.3.4 <4.0.0'
 
 dependencies:
-  android_path_provider: ^0.3.0
-  awesome_notifications: ^0.7.4+1
-  file_sizes: ^1.0.6
   flutter:
     sdk: flutter
-  flutter_inappwebview: ^6.0.0
-  flutter_session_manager: ^1.0.3
-  flutter_web_browser: ^0.17.1
-  http: ^0.13.6
-  native_toast: ^0.0.2
-  permission_handler: ^10.2.0
-  random_string: ^2.3.1
-  sanitize_filename: ^1.0.5
-  simple_downloader: 
-    git:
-      url: https://github.com/SerpentDash/simple_downloader
-      ref: master
-  throttling: ^1.0.0
-  app_links: ^3.4.3
-  open_file_plus: ^3.4.1
-  android_intent_plus: ^4.0.1
   html: ^0.15.4
+  http: ^1.2.1
+  dio: ^5.4.3+1
+  app_links: ^4.0.1
   deep_pick: ^1.0.0
-  dio: ^5.4.2+1
-  flutter_downloader: ^1.11.7
+  file_sizes: ^1.0.6
+  open_file_plus: ^3.4.1
   ffmpeg_kit_flutter: ^6.0.3
+  permission_handler: ^11.3.1
+  android_intent_plus: ^5.0.2
+  flutter_inappwebview: ^6.0.0
+  awesome_notifications: ^0.9.3+1
+  background_downloader: ^8.4.3
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^3.0.2
 
 flutter:
   uses-material-design: true
