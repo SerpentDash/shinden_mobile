@@ -110,7 +110,7 @@
 
                 setTimeout(() => {
                     // Prevent accidental reloading in flutter app
-                    window.flutter_inappwebview.callHandler('noReload');
+                    window.flutter_inappwebview.callHandler('no_reload');
                         
                     // Let user use back button in flutter app to close list
                     location.hash = 'list';
@@ -295,7 +295,7 @@
         // Block scroll when clicked on search toggle button
         document.getElementsByClassName('search-toggle')[0].addEventListener("click", () => {
             document.body.classList.add('block_scroll');
-            window.flutter_inappwebview.callHandler('noReload'); // prevent accidental reload on swipe down
+            window.flutter_inappwebview.callHandler('no_reload'); // prevent accidental reload on swipe down
         });
 
         // hide modal when clicked outside of modal body 

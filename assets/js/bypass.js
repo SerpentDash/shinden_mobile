@@ -31,7 +31,7 @@
         { name: 'yourupload', handler: 'open_yourupload' },
         { name: 'aparat', host: "wolfstream", handler: 'open_aparat' },
         { name: 'default', host: "filemoon", handler: 'open_default' },
-        { name: 'mega', handler: 'open_in_browser' }, // WIP
+        { name: 'mega', handler: '' }, // WIP
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
@@ -73,7 +73,6 @@
                     case 'yourupload':
                     case 'dood':
                         _dropdown.children[1].children[0].remove();
-
                         _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[0].innerText);
                         break;
                     default:
@@ -99,7 +98,7 @@
             selectButton(btn);
             getPlayer(data);
             btn.innerText = buttonText;
-            window.flutter_inappwebview.callHandler('mode_set', (current_mode = mode));
+            current_mode = mode;
         };
 
         function getPlayer(d) {
@@ -148,7 +147,7 @@
         if (current_mode != '') {
             for (const provider of providers) {
                 if ((provider?.host && link.includes(provider.host)) || link.includes(provider.name)) {
-                    window.flutter_inappwebview.callHandler(provider.handler, link);
+                    window.flutter_inappwebview.callHandler(provider.handler, link, current_mode);
                     setTimeout(() => {
                         selectButton(null);
                         container.innerHTML = "";

@@ -20,7 +20,7 @@ const List<MapEntry<String, Function>> playersHandlers = [
   MapEntry('open_default', defaultPlayer),
 ];
 
-void cdaPlayer(url, controller) async {
+void cdaPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
   final document = parse(response.body);
 
@@ -56,14 +56,14 @@ void cdaPlayer(url, controller) async {
     },
     body: data,
   );
-  final target =
+  final directLink =
       pick(json.decode(r.body), 'result', 'resp').asStringOrNull().toString();
 
-  downloadOrStream(
-      controller, target, "${Uri.decodeFull(title!)} [${quality.key}]");
+  process(controller, directLink, "${Uri.decodeFull(title!)} [${quality.key}]",
+      mode);
 }
 
-void gdrivePlayer(url, controller) async {
+void gdrivePlayer(controller, url, mode) async {
   Uri uri = Uri.parse(url);
 
   var response = await http.get(uri);
@@ -82,20 +82,20 @@ void gdrivePlayer(url, controller) async {
   final regex = RegExp('/file/d/([^/]+)');
   final id = regex.allMatches(uri.path).map((str) => str.group(1)).single;
 
-  final target =
+  final directLink =
       "https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t";
   //"${uri.scheme}://${uri.host}/uc?id=$id&confirm=t&export=download";
 
-  downloadOrStream(controller, target, title);
+  process(controller, directLink, title, mode);
 }
 
-void sibnetPlayer(url, controller) async {
+void sibnetPlayer(controller, url, mode) async {
   var r1 = await http.get(Uri.parse(url));
 
   // Get video url
   RegExp urlRegExp = RegExp(r'player.src\(\[\{src: "(.*?)",');
   String? urlMatch = urlRegExp.firstMatch(r1.body)?.group(1);
-  log("http://video.sibnet.ru$urlMatch");
+  //log("http://video.sibnet.ru$urlMatch");
 
   // Get video title
   RegExp titleRegExp = RegExp(r"title: '([^']+)'");
@@ -113,12 +113,12 @@ void sibnetPlayer(url, controller) async {
 
   // Format direct link
   var directLink = r2.realUri.toString();
-  log(directLink);
+  //log(directLink);
 
-  downloadOrStream(controller, "https:$directLink", titleMatch);
+  process(controller, "https:$directLink", titleMatch, mode);
 }
 
-void streamtapePlayer(url, controller) async {
+void streamtapePlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
   final responseBody = response.body;
 
@@ -145,7 +145,7 @@ void streamtapePlayer(url, controller) async {
   // Extract clear url
   List<String> parts = encrypted.split("'+ ('");
   String clearUrl = parts[0] + parts[1].substring(3);
-  log(clearUrl);
+  //log(clearUrl);
 
   // Send request for direct link
   Dio dio = Dio();
@@ -156,7 +156,7 @@ void streamtapePlayer(url, controller) async {
       headers: {"referer": "$url"},
     ),
   );
-  log(head.realUri.toString());
+  //log(head.realUri.toString());
 
   // Get title
   int titleStart =
@@ -165,10 +165,10 @@ void streamtapePlayer(url, controller) async {
 
   String title = responseBody.substring(titleStart, titleEnd);
 
-  downloadOrStream(controller, head.realUri.toString(), title);
+  process(controller, head.realUri.toString(), title, mode);
 }
 
-void mp4uploadPlayer(url, controller) async {
+void mp4uploadPlayer(controller, url, mode) async {
   RegExp regex = RegExp(r"/([^/]+)\.html");
   var id = regex.firstMatch(url)?.group(1);
 
@@ -182,37 +182,27 @@ void mp4uploadPlayer(url, controller) async {
     },
   );
 
-  final target = response.headers.entries.elementAt(1).value;
+  final directLink = response.headers.entries.elementAt(1).value;
 
   RegExp regExp = RegExp(r'^(.+)\.mp4$');
-  final title = regExp.firstMatch(target.split('/').last)?.group(1) ?? "video";
+  final title =
+      regExp.firstMatch(directLink.split('/').last)?.group(1) ?? "video";
 
-  log("Title: $title, Target: $target");
+  //log("Title: $title, directLink: $directLink");
 
-  await Permission.notification.isDenied.then((value) {
-    if (value) Permission.notification.request();
-  });
+  download(directLink, "$title.mp4", headers: {"referer": "$url"});
 
-  final taskId = await FlutterDownloader.enqueue(
-    url: target,
-    fileName: "$title.mp4",
-    headers: {"referer": "$url"},
-    savedDir: savePath,
-    showNotification: true,
-    openFileFromNotification: true,
-  );
-
-  // Won't work without passing headers
-  //downloadOrStream(controller, target, title);
+  // Won't work without passing headers to external video player app
+  //process(controller, directLink, title, mode);
 }
 
-void doodPlayer(url, controller) async {
+void doodPlayer(controller, url, mode) async {
   var r1 = await http.get(Uri.parse(url));
   final body = r1.body;
 
   final newUrl = url.toString().replaceFirst("dood.yt", "d0000d.com");
   /* r1.headers.entries.firstWhere((element) => element.key == "domain").value; */
-  log("newUrl: $newUrl");
+  //log("newUrl: $newUrl");
 
 /*   final watchRegex = RegExp(r'\/dood\?op=watch[^"]+');
   final watch = watchRegex.firstMatch(body)?.group(0);
@@ -235,39 +225,29 @@ void doodPlayer(url, controller) async {
       .map((str) => str.group(0))
       .single
       ?.replaceAll("'", '');
-  log("MD5: $md5");
+  //log("MD5: $md5");
 
   final tokenRegex = RegExp(r'token=([^&]+)');
   final token = tokenRegex.firstMatch(body)!.group(1);
-  log("Token: $token");
+  //log("Token: $token");
 
-  log('request 3: https://d0000d.com$md5');
+  //log('request 3: https://d0000d.com$md5');
   var r3 = await http
       .get(Uri.parse("https://d0000d.com$md5"), headers: {"Referer": newUrl});
 
-  final direct = "${r3.body}${generateRandomString(token)}";
+  final directLink = "${r3.body}${generateRandomString(token)}";
 
   RegExp titleRegex = RegExp(r'<title>(.*?)</title>');
   final title =
       titleRegex.firstMatch(body)?.group(1)!.replaceAll(" - DoodStream", "");
+      
+  download(directLink, "$title.mp4", headers: {"referer": "$url"});
 
-  await Permission.notification.isDenied.then((value) {
-    if (value) Permission.notification.request();
-  });
-  final taskId = await FlutterDownloader.enqueue(
-    url: direct,
-    fileName: "$title.mp4",
-    headers: {"referer": "$url"},
-    savedDir: savePath,
-    showNotification: true,
-    openFileFromNotification: true,
-  );
-
-  // Won't work without passing headers
-  //downloadOrStream(controller, direct, "aadfdf");
+  // Won't work without passing headers to external video player app
+  //process(controller, directLink, "test", mode);
 }
 
-void dailymotionPlayer(url, controller) async {
+void dailymotionPlayer(controller, url, mode) async {
   RegExp regExp = RegExp(r'\/video\/([^?/]+)');
   final id = regExp.firstMatch(url)!.group(1);
 
@@ -291,12 +271,12 @@ void dailymotionPlayer(url, controller) async {
 
   RegExp pattern = RegExp(r'PROGRESSIVE-URI="([^"]*)"');
 
-  final direct = pattern.allMatches(m3uResponse.body).last.group(1);
+  final directLink = pattern.allMatches(m3uResponse.body).last.group(1);
 
-  downloadOrStream(controller, direct, title);
+  process(controller, directLink, title, mode);
 }
 
-void supervideoPlayer(url, controller) async {
+void supervideoPlayer(controller, url, mode) async {
   //url = url.replaceFirst("tv", "cc");
 
   /* var response = await http.get(Uri.parse(url), headers: {
@@ -328,59 +308,30 @@ void supervideoPlayer(url, controller) async {
   RegExp hostRegex = RegExp(r"serversicuro\|([^|]*)");
   final host = hostRegex.firstMatch(body)!.group(1);
 
-  final direct = "https://$host.serversicuro.cc/hls/$id/index-v1-a1.m3u8";
-  log(direct);
+  final directLink = "https://$host.serversicuro.cc/hls/$id/index-v1-a1.m3u8";
+  //log(directLink);
 
-  await SessionManager().get('mode').then((val) async {
-    Uri u = Uri.parse(url);
-    final title = u.pathSegments[u.pathSegments.length - 2];
+  Uri u = Uri.parse(url);
+  final title = u.pathSegments[u.pathSegments.length - 2];
 
-    switch (val) {
-      case 'stream':
-        AndroidIntent(
-          action: 'action_view',
-          type: "video/*",
-          data: direct,
-          arguments: {'title': title},
-        ).launch();
-        break;
-      case 'download':
-        FFprobeKit.getMediaInformation(url).then((session) async {
-          /*  final information = await session.getMediaInformation();
-          double maxDuration = 0;
-
-          if (information == null) {
-            final temp = await session.getDuration();
-            maxDuration = double.tryParse(temp.toString())!;
-          } else {
-            maxDuration =
-                double.tryParse(information?.getDuration().toString() ?? "") ??
-                    0;
-          }
-          maxDuration *= 1000;
-
-          log(maxDuration.toString()); */
-          log("$savePath/$title.mp4");
-          await FFmpegKit.executeAsync(
-              '-threads 4 -i $direct -c copy $savePath/$title.mp4',
-              // 1431.787000
-              // getTime: 1431765.333
-              (Session session) {
-            log("Done");
-          }, (Log logg) {
-            log(logg.getMessage());
-          }, (Statistics statistics) {
-            //log("Progress: ${statistics.getTime()}/$maxDuration | ${statistics.getTime() / maxDuration}");
-          });
-        });
-        break;
-      default:
-        break;
-    }
-  });
+  switch (mode) {
+    case 'stream':
+      AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: directLink,
+        arguments: {'title': title},
+      ).launch();
+      break;
+    case 'download':
+      startFFmpegTask(directLink, title);
+      break;
+    default:
+      break;
+  }
 }
 
-void vkPlayer(url, controller) async {
+void vkPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
     'User-Agent':
         'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
@@ -388,12 +339,12 @@ void vkPlayer(url, controller) async {
   final body = response.body;
 
   // Find url any valid video link (starting from the highest quality)
-  String direct = "";
+  String directLink = "";
   final qualities = ['url1080', 'url720', 'url480'];
   for (String key in qualities) {
     if (body.contains(key)) {
       int keyIndex = body.indexOf(key);
-      direct = body
+      directLink = body
           .substring(keyIndex + key.length)
           .split('"')[2]
           .replaceAll("\\/", "/");
@@ -401,7 +352,7 @@ void vkPlayer(url, controller) async {
     }
   }
 
-  if (direct.isEmpty) {
+  if (directLink.isEmpty) {
     controller.evaluateJavascript(
         source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
@@ -415,11 +366,11 @@ void vkPlayer(url, controller) async {
     if (value) title = "$title [${DateTime.now().toString()}]";
   });
 
-  log("Title: $title, Target: $direct");
-  downloadOrStream(controller, direct, title);
+  //log("Title: $title, Target: $directLink");
+  process(controller, directLink, title, mode);
 }
 
-void okruPlayer(url, controller) async {
+void okruPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
     'User-Agent':
         'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
@@ -433,7 +384,7 @@ void okruPlayer(url, controller) async {
       .replaceAll("%3B", ";");
 
   // Find any valid video link (starting from the highest quality)
-  String direct = "";
+  String directLink = "";
   final qualities = ['full', 'hd', 'sd'];
   for (var key in qualities) {
     int keyIndex = body.indexOf('"name":"$key"');
@@ -445,10 +396,10 @@ void okruPlayer(url, controller) async {
     int urlIndexEnd = body.indexOf('"', urlIndexStart + 7);
 
     // Extract the URL substring
-    direct = body.substring(urlIndexStart + 7, urlIndexEnd);
+    directLink = body.substring(urlIndexStart + 7, urlIndexEnd);
   }
 
-  if (direct.isEmpty) {
+  if (directLink.isEmpty) {
     controller.evaluateJavascript(
         source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
@@ -462,11 +413,11 @@ void okruPlayer(url, controller) async {
     if (value) title = "$title [${DateTime.now().toString()}]";
   });
 
-  log("Title: $title, Target: $direct");
-  downloadOrStream(controller, direct, title);
+  //log("Title: $title, Target: $directLink");
+  process(controller, directLink, title, mode);
 }
 
-void youruploadPlayer(url, controller) async {
+void youruploadPlayer(controller, url, mode) async {
   var r1 = await http.get(Uri.parse(url));
   final doc1 = parse(r1.body);
 
@@ -483,72 +434,53 @@ void youruploadPlayer(url, controller) async {
     headers: {"referer": url},
   );
 
-  // Get donwload link with token
+  // Get download link with token
   final doc2 = parse(r2.body);
-  final urlWithToken =
+  final directLink =
       'https://www.yourupload.com${doc2.querySelector('[data-url]')!.attributes['data-url']}';
 
-  log("Title: $title, Target: $urlWithToken");
+  //log("Title: $title, Target: $directLink");
 
-  await Permission.notification.isDenied.then((value) {
-    if (value) Permission.notification.request();
-  });
+  download(directLink, title, headers: {"referer": urlWithoutToken});
 
-  // Trigger download (with token)
-  final taskId = await FlutterDownloader.enqueue(
-    url: urlWithToken,
-    fileName: title,
-    headers: {"referer": urlWithoutToken},
-    savedDir: savePath,
-    showNotification: true,
-    openFileFromNotification: true,
-  );
-
-  // Won't work without passing headers
-  //downloadOrStream(controller, response2.realUri.toString(), "title");
+  // Won't work without passing headers to external video player app
+  //process(controller, response2.realUri.toString(), "title", mode);
 }
 
-void aparatPlayer(url, controller) async {
-  var response = await http.get(Uri.parse(url));
+void aparatPlayer(controller, url, mode) async {
+  var response = await http.get(Uri.parse(url), headers: {
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+  });
 
   final body = response.body;
 
   RegExp regExp = RegExp(r'file:\s*\"(.*?)\"');
 
-  final direct = regExp.firstMatch(body)!.group(1)!;
-  log(direct);
+  final directLink = regExp.firstMatch(body)!.group(1)!;
+  //log(directLink);
 
-  await SessionManager().get('mode').then((val) async {
-    Uri u = Uri.parse(url);
-    final title = u.pathSegments[u.pathSegments.length - 1];
+  Uri u = Uri.parse(url);
+  final title = u.pathSegments[u.pathSegments.length - 1];
 
-    switch (val) {
-      case 'stream':
-        AndroidIntent(
-          action: 'action_view',
-          type: "video/*",
-          data: direct,
-          arguments: {'title': title},
-        ).launch();
-        break;
-      case 'download':
-        await FFmpegKit.executeAsync(
-            '-threads 4 -i $direct -c copy $savePath/$title.mp4',
-            (Session session) {
-          log("Done");
-        }, (Log logg) {
-          log(logg.getMessage());
-        }, (Statistics statistics) {
-          log(statistics.getTime().toString());
-        });
-        break;
-      default:
-        break;
-    }
-  });
+  switch (mode) {
+    case 'stream':
+      AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: directLink,
+        arguments: {'title': title},
+      ).launch();
+      break;
+    case 'download':
+      startFFmpegTask(directLink, title);
+      break;
+    default:
+      break;
+  }
 }
 
-void defaultPlayer(url, controller) async {
+void defaultPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
     'User-Agent':
         'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
@@ -587,48 +519,43 @@ void defaultPlayer(url, controller) async {
   }
 
   // Replace radix-36 values with replacements
-  String direct = obfuscatedUrl;
+  String directLink = obfuscatedUrl;
   replacements.sort((a, b) => b[0].compareTo(a[0]));
   for (List<int> replacement in replacements) {
     int start = replacement[0];
     int end = replacement[1];
     int newValue = replacement[2];
-    direct = direct.replaceRange(start, end, array[newValue]);
+    directLink = directLink.replaceRange(start, end, array[newValue]);
   }
 
-  log(direct);
+  //log(directLink);
 
-  await SessionManager().get('mode').then((val) async {
-    Uri u = Uri.parse(url);
-    final title = u.pathSegments[u.pathSegments.length - 1];
+  Uri u = Uri.parse(url);
+  final title = u.pathSegments[u.pathSegments.length - 1];
 
-    switch (val) {
-      case 'stream':
-        AndroidIntent(
-          action: 'action_view',
-          type: "video/*",
-          data: direct,
-          arguments: {'title': title},
-        ).launch();
-        break;
-      case 'download':
-        direct = direct
-            .replaceFirst(",h,o,.urlset", "h")
-            .replaceFirst("master", "index-v1-a1");
-        await FFmpegKit.executeAsync(
-            '-threads 4 -i $direct -c copy $savePath/$title.mp4',
-            (Session session) {
-          log("Done");
-        }, (Log logg) {
-          log(logg.getMessage());
-        }, (Statistics statistics) {
-          log(statistics.getTime().toString());
-        });
-        break;
-      default:
-        break;
-    }
-  });
+  switch (mode) {
+    case 'stream':
+      AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: directLink,
+        arguments: {'title': title},
+      ).launch();
+      break;
+    case 'download':
+      log(directLink);
+      startFFmpegTask(directLink, title, headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+      });
+      directLink = directLink
+          .replaceFirst(",h,o,.urlset", "h")
+          .replaceFirst("master", "index-v1-a1");
+      log(directLink);
+      break;
+    default:
+      break;
+  }
 }
 
 //Helper function for dood provider
