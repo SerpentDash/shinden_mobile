@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of 'download_kit.dart';
 
 //
 // Video providers that utilize requests from servers
@@ -18,6 +18,7 @@ const List<MapEntry<String, Function>> playersHandlers = [
   MapEntry('open_yourupload', youruploadPlayer),
   MapEntry('open_aparat', aparatPlayer),
   MapEntry('open_default', defaultPlayer),
+  MapEntry('open_mega', megaPlayer),
 ];
 
 void cdaPlayer(controller, url, mode) async {
@@ -113,7 +114,7 @@ void sibnetPlayer(controller, url, mode) async {
 
   // Format direct link
   var directLink = r2.realUri.toString();
-  //log(directLink);
+  log(directLink);
 
   process(controller, "https:$directLink", titleMatch, mode);
 }
@@ -240,7 +241,7 @@ void doodPlayer(controller, url, mode) async {
   RegExp titleRegex = RegExp(r'<title>(.*?)</title>');
   final title =
       titleRegex.firstMatch(body)?.group(1)!.replaceAll(" - DoodStream", "");
-      
+
   download(directLink, "$title.mp4", headers: {"referer": "$url"});
 
   // Won't work without passing headers to external video player app
@@ -272,6 +273,7 @@ void dailymotionPlayer(controller, url, mode) async {
   RegExp pattern = RegExp(r'PROGRESSIVE-URI="([^"]*)"');
 
   final directLink = pattern.allMatches(m3uResponse.body).last.group(1);
+  log(directLink.toString());
 
   process(controller, directLink, title, mode);
 }
@@ -312,7 +314,7 @@ void supervideoPlayer(controller, url, mode) async {
   //log(directLink);
 
   Uri u = Uri.parse(url);
-  final title = u.pathSegments[u.pathSegments.length - 2];
+  final title = u.pathSegments[u.pathSegments.length - 2].split('.').first;
 
   switch (mode) {
     case 'stream':
@@ -324,7 +326,14 @@ void supervideoPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      startFFmpegTask(directLink, title);
+      // TODO: TEST THIS PROVIDER
+      var master = await http.get(Uri.parse(directLink));
+
+      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
+      Iterable<Match> matches = regex.allMatches(master.body);
+
+      log(matches.last.group(0)!);
+      ffmpegTask(matches.last.group(0)!, title);
       break;
     default:
       break;
@@ -461,7 +470,7 @@ void aparatPlayer(controller, url, mode) async {
   //log(directLink);
 
   Uri u = Uri.parse(url);
-  final title = u.pathSegments[u.pathSegments.length - 1];
+  final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
   switch (mode) {
     case 'stream':
@@ -473,7 +482,16 @@ void aparatPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      startFFmpegTask(directLink, title);
+      var master = await http.get(Uri.parse(directLink), headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+      });
+
+      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
+      Iterable<Match> matches = regex.allMatches(master.body);
+
+      log(matches.last.group(0)!);
+      ffmpegTask(matches.last.group(0)!, title);
       break;
     default:
       break;
@@ -481,10 +499,7 @@ void aparatPlayer(controller, url, mode) async {
 }
 
 void defaultPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent':
-        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
-  });
+  var response = await http.get(Uri.parse(url));
   final body = response.body;
 
   // Get obfuscated url
@@ -531,7 +546,7 @@ void defaultPlayer(controller, url, mode) async {
   //log(directLink);
 
   Uri u = Uri.parse(url);
-  final title = u.pathSegments[u.pathSegments.length - 1];
+  final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
   switch (mode) {
     case 'stream':
@@ -543,19 +558,22 @@ void defaultPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      log(directLink);
-      startFFmpegTask(directLink, title, headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
-      });
-      directLink = directLink
-          .replaceFirst(",h,o,.urlset", "h")
-          .replaceFirst("master", "index-v1-a1");
-      log(directLink);
+    log(directLink);
+      var master = await http.get(Uri.parse(directLink));
+
+      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
+      Iterable<Match> matches = regex.allMatches(master.body);
+
+      ffmpegTask(matches.last.group(0)!, title);
+
       break;
     default:
       break;
   }
+}
+
+void megaPlayer(controller, url, mode) async {
+  runMegaTask(url);
 }
 
 //Helper function for dood provider

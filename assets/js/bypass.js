@@ -27,11 +27,11 @@
         { name: 'supervideo', handler: 'open_supervideo' },
         { name: 'dood', handler: 'open_dood' },
         { name: 'vk', handler: 'open_vk' },
-        { name: 'okru', handler: 'open_okru' },
+        { name: 'okru', host: "ok.ru", handler: 'open_okru' },
         { name: 'yourupload', handler: 'open_yourupload' },
         { name: 'aparat', host: "wolfstream", handler: 'open_aparat' },
         { name: 'default', host: "filemoon", handler: 'open_default' },
-        { name: 'mega', handler: '' }, // WIP
+        { name: 'mega', handler: 'open_mega' },
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
@@ -67,11 +67,10 @@
                     /* case 'supervideo': // only stream
                         _dropdown.children[1].children[1].remove();
                         break; */
-                    case 'mega': // open in official mega app (or browser)
-                        _dropdown.children[1].children[1].innerText = 'Mega APP';
                     case 'mp4upload': // only download
                     case 'yourupload':
                     case 'dood':
+                    case 'mega':
                         _dropdown.children[1].children[0].remove();
                         _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[0].innerText);
                         break;

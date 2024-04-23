@@ -1,34 +1,14 @@
 import 'dart:io';
-import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:background_downloader/background_downloader.dart';
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:open_file_plus/open_file_plus.dart';
-
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/ffprobe_kit.dart';
-import 'package:ffmpeg_kit_flutter/return_code.dart';
-
-import 'package:http/http.dart' as http;
-import 'package:dio/dio.dart';
-import 'dart:math' show Random;
-
-import 'package:html/parser.dart';
-import 'package:deep_pick/deep_pick.dart';
-
-import 'package:android_intent_plus/android_intent.dart';
 import 'package:app_links/app_links.dart';
-
-part 'download_kit.dart';
-part 'players_handler.dart';
+import 'download_kit.dart';
 
 String css = "";
 List<String> hosts = [];
@@ -110,16 +90,6 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     super.initState();
-
-    // if user killed app while downloading then remove broken notification and tmp files
-    AwesomeNotifications().cancelAll();
-    Permission.storage.isGranted.then((granted) {
-      if (granted) {
-        Directory(savePath).list(recursive: true).listen((file) {
-          if (file is File && file.path.endsWith('tmp')) file.deleteSync();
-        });
-      }
-    });
 
     pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(
