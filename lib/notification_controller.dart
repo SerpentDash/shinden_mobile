@@ -49,7 +49,7 @@ class NotificationController {
 
   static void startIsolate(
       void Function(dynamic) entryPoint, List<dynamic> args) async {
-    // Generate a unique ID for the isolate
+    // Generate 'unique' ID for the isolate
     int isolateId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
     args.insert(1, isolateId);
 
@@ -97,7 +97,7 @@ class NotificationController {
     );
 
     await AwesomeNotifications().setListeners(
-      onActionReceivedMethod: NotificationController.onActionReceived,
+      onActionReceivedMethod: onActionReceived,
     );
   }
 }

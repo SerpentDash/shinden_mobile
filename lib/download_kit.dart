@@ -73,7 +73,8 @@ void download(url, fileName, {Map<String, String> headers = const {}}) async {
     DownloadTask(
       url: url,
       filename: fileName,
-      directory: '$savePath/$fileName',
+      directory: savePath,
+      baseDirectory: BaseDirectory.root,
       headers: headers,
       updates: Updates.progress,
       retries: 3,
@@ -441,12 +442,15 @@ Future<void> initializeFileDownloader() async {
 
   await Permission.storage.request();
   await Permission.manageExternalStorage.request();
+  await Permission.videos.request();
   await Permission.notification.request();
 
   await FileDownloader().configure(globalConfig: [
-    (Config.requestTimeout, const Duration(seconds: 100))
+    (Config.requestTimeout, const Duration(seconds: 30))
   ], androidConfig: [
-    (Config.useCacheDir, Config.whenAble)
+    (Config.useCacheDir, Config.never),
+    (Config.useExternalStorage, Config.always),
+    (Config.runInForeground, Config.always)
   ]).then((result) => log('Configuration result = $result'));
 
   FileDownloader()
@@ -458,6 +462,7 @@ Future<void> initializeFileDownloader() async {
         error: const TaskNotification('{filename}', 'Download failed'),
         paused: const TaskNotification('{filename}', 'Paused by user'),
         progressBar: true,
+        tapOpensFile: true,
       )
       .configureNotificationForGroup('bunch',
           running: const TaskNotification(
