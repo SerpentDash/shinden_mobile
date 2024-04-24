@@ -5,11 +5,7 @@ class NotificationController {
   static ReceivePort? _receivePort;
   static final Map<int, Isolate> _isolates = {};
 
-  // Expose the uiSendPort for use in the isolate
-  static SendPort get uiSendPort => _uiSendPort!;
-
   static Future<void> initialize() async {
-    // Check if the _receivePort has already been initialized
     if (_receivePort != null) return;
 
     await _initializeNotifications();
@@ -49,9 +45,11 @@ class NotificationController {
 
   static void startIsolate(
       void Function(dynamic) entryPoint, List<dynamic> args) async {
-    // Generate 'unique' ID for the isolate
+    await initialize();
+
     int isolateId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    args.insert(1, isolateId);
+    args.insert(0, _uiSendPort);    // add port to comunicate between isolates
+    args.insert(1, isolateId);      // add id to use as notification id
 
     Isolate isolate = await Isolate.spawn(entryPoint, [...args]);
     _isolates[isolateId] = isolate;
@@ -60,19 +58,17 @@ class NotificationController {
   @pragma('vm:entry-point')
   static Future<void> onActionReceived(ReceivedAction receivedAction) async {
     if (receivedAction.body!.contains("Download completed.")) {
-      print('$savePath/${receivedAction.title}');
       OpenFile.open("$savePath/${receivedAction.title}", type: "video/*");
       return;
     }
 
-    if (receivedAction.buttonKeyPressed == 'cancelMega') {
+    if (receivedAction.buttonKeyPressed == 'cancel') {
       String? id = receivedAction.payload?['isolate'];
       String? fileName = receivedAction.payload?['fileName'];
       if (id != null || fileName != null) {
         NotificationController.killIsolate([id, fileName]);
       }
-    }
-    if (receivedAction.buttonKeyPressed == 'cancelFfmpeg') {
+    } else if (receivedAction.buttonKeyPressed == 'cancelFfmpeg') {
       FFmpegKit.cancel(int.parse(receivedAction.payload!["session"]!));
     }
   }

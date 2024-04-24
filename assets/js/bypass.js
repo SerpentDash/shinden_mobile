@@ -3,7 +3,7 @@
 
     new MutationObserver(function () {
         if (document.readyState === "complete") this.disconnect();
-        // TODO: Test this.
+
         // Get next element to make sure our target (previous element) is fully loaded
         if (document.querySelector('.player-navigator-section')) {
             this.disconnect();
@@ -30,7 +30,7 @@
         { name: 'okru', host: "ok.ru", handler: 'open_okru' },
         { name: 'yourupload', handler: 'open_yourupload' },
         { name: 'aparat', host: "wolfstream", handler: 'open_aparat' },
-        { name: 'default', host: "filemoon", handler: 'open_default' },
+        { name: 'default', host: "filemoon", handler: 'open_default' }, // can be more hosts...
         { name: 'mega', handler: 'open_mega' },
     ]; // 'streamsb', 'hqq'
 
@@ -137,10 +137,6 @@
         let link = playerDOM.getElementsByTagName('iframe')[0] || playerDOM.querySelector('.button-player');
         link = link.src || link.href;
         console.log(link);
-
-        // Fix link
-        if (link.includes('mp4upload')) link = link.replace("embed-", "");
-        if (link.includes('yourupload')) link = link.replace("embed", "watch");
 
         // Pass url to supported handlers
         if (current_mode != '') {
