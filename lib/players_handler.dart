@@ -96,6 +96,12 @@ void sibnetPlayer(controller, url, mode) async {
   // Get video url
   RegExp urlRegExp = RegExp(r'player.src\(\[\{src: "(.*?)",');
   String? urlMatch = urlRegExp.firstMatch(r1.body)?.group(1);
+
+  if (urlMatch == null) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
   //log("http://video.sibnet.ru$urlMatch");
 
   // Get video title
@@ -170,13 +176,15 @@ void streamtapePlayer(controller, url, mode) async {
 }
 
 void mp4uploadPlayer(controller, url, mode) async {
+  url = url.toString().replaceAll("embed-", "");
+
   RegExp regex = RegExp(r"/([^/]+)\.html");
-  var id = regex.firstMatch(url)?.group(1);
+  var mp4Id = regex.firstMatch(url)?.group(1);
 
   var response = await http.post(
     Uri.parse(url),
     body:
-        "op=download2&id=$id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
+        "op=download2&id=$mp4Id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
     headers: {
       "Referer": url,
       "content-type": "application/x-www-form-urlencoded",
@@ -185,13 +193,15 @@ void mp4uploadPlayer(controller, url, mode) async {
 
   final directLink = response.headers.entries.elementAt(1).value;
 
-  RegExp regExp = RegExp(r'^(.+)\.mp4$');
-  final title =
-      regExp.firstMatch(directLink.split('/').last)?.group(1) ?? "video";
+  if (directLink == "") {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
 
-  //log("Title: $title, directLink: $directLink");
+  final title = url.split('/').last.split('.').first;
 
-  download(directLink, "$title.mp4", headers: {"referer": "$url"});
+  NotificationController.startIsolate(mp4uploadTask, [directLink, title]);
 
   // Won't work without passing headers to external video player app
   //process(controller, directLink, title, mode);
@@ -205,7 +215,7 @@ void doodPlayer(controller, url, mode) async {
   /* r1.headers.entries.firstWhere((element) => element.key == "domain").value; */
   //log("newUrl: $newUrl");
 
-/*   final watchRegex = RegExp(r'\/dood\?op=watch[^"]+');
+  final watchRegex = RegExp(r'\/dood\?op=watch[^"]+');
   final watch = watchRegex.firstMatch(body)?.group(0);
   log("watch: $watch");
 
@@ -213,12 +223,12 @@ void doodPlayer(controller, url, mode) async {
     controller.evaluateJavascript(
         source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
-  } 
+  }
   log('request 2: https://d0000d.com${watch}1&ref2=&adb=0&ftor=0');
   var r2 = await http.get(
     Uri.parse("https://d0000d.com${watch}1&ref2=&adb=0&ftor=0"),
     headers: {"Referer": newUrl},
-  */
+  );
 
   final md5Regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
   final md5 = md5Regex
@@ -259,6 +269,12 @@ void dailymotionPlayer(controller, url, mode) async {
 
   Map<String, dynamic> json = jsonDecode(jsonResponse.body);
 
+  if (json['error'] != null) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
   final title = json['title'];
 
   final target = json["qualities"]["auto"][0]["url"];
@@ -281,11 +297,6 @@ void dailymotionPlayer(controller, url, mode) async {
 void supervideoPlayer(controller, url, mode) async {
   //url = url.replaceFirst("tv", "cc");
 
-  /* var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'
-  }); */
-
   // Send request for direct link
   Dio dio = Dio();
   final response = await dio.get(
@@ -298,6 +309,12 @@ void supervideoPlayer(controller, url, mode) async {
       },
     ),
   );
+
+  if (response.statusCode != 200) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
 
   final body = response.data;
 
@@ -314,7 +331,7 @@ void supervideoPlayer(controller, url, mode) async {
   //log(directLink);
 
   Uri u = Uri.parse(url);
-  final title = u.pathSegments[u.pathSegments.length - 2].split('.').first;
+  final title = u.pathSegments[u.pathSegments.length - 1];
 
   switch (mode) {
     case 'stream':
@@ -326,14 +343,7 @@ void supervideoPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      // TODO: TEST THIS PROVIDER
-      var master = await http.get(Uri.parse(directLink));
-
-      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
-      Iterable<Match> matches = regex.allMatches(master.body);
-
-      log(matches.last.group(0)!);
-      ffmpegTask(matches.last.group(0)!, title);
+      ffmpegTask(directLink, title);
       break;
     default:
       break;
@@ -427,11 +437,19 @@ void okruPlayer(controller, url, mode) async {
 }
 
 void youruploadPlayer(controller, url, mode) async {
+  url = url.toString().replaceAll("embed", "watch");
+
   var r1 = await http.get(Uri.parse(url));
   final doc1 = parse(r1.body);
 
   final title =
       doc1.querySelector('title')!.innerHtml.replaceFirst("Downloading ", "");
+
+  if (title == "Error") {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
 
   RegExp regExp = RegExp(r'\/download\?file=\d+');
   final urlWithoutToken =
@@ -466,7 +484,13 @@ void aparatPlayer(controller, url, mode) async {
 
   RegExp regExp = RegExp(r'file:\s*\"(.*?)\"');
 
-  final directLink = regExp.firstMatch(body)!.group(1)!;
+  final directLink = regExp.firstMatch(body)?.group(1);
+
+  if (directLink == null) {
+    controller.evaluateJavascript(
+        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
   //log(directLink);
 
   Uri u = Uri.parse(url);
@@ -558,7 +582,7 @@ void defaultPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-    log(directLink);
+      log(directLink);
       var master = await http.get(Uri.parse(directLink));
 
       RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
@@ -573,7 +597,7 @@ void defaultPlayer(controller, url, mode) async {
 }
 
 void megaPlayer(controller, url, mode) async {
-  runMegaTask(url);
+  NotificationController.startIsolate(megaTask, [url]);
 }
 
 //Helper function for dood provider
