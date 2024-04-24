@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'dart:math' show Random;
 
 import 'package:html/parser.dart';
@@ -77,24 +78,15 @@ void download(url, fileName, {Map<String, String> headers = const {}}) async {
       baseDirectory: BaseDirectory.root,
       headers: headers,
       updates: Updates.progress,
-      retries: 3,
       allowPause: true,
+      retries: 3,
     ),
   );
 }
 
 /// Download and decrypt file from MEGA
-void runMegaTask(String url) async {
-  NotificationController.initialize();
-
-  NotificationController.startIsolate(
-    megaTask,
-    [NotificationController.uiSendPort, url],
-  );
-}
-
 void megaTask(dynamic params) async {
-  final sendPort = params[0];
+  final sendPort = params[0]; // will be added by NotificationController
   int id = params[1]; // will be added by NotificationController
   String baseUrl = params[2];
 
@@ -141,6 +133,18 @@ void megaTask(dynamic params) async {
 
   // Parse json
   final jsonResponse = jsonDecode(apiResponse.body);
+
+  if (jsonResponse == [-9]) {
+    sendPort.send({
+      'content': NotificationContent(
+        id: id,
+        channelKey: 'downloader',
+        title: "Error: File does not exist",
+      ),
+    });
+    log("Error: File does not exist");
+    return;
+  }
 
   String url = jsonResponse[0]['g'];
   //int size = jsonResponse[0]['s'];
@@ -192,7 +196,7 @@ void megaTask(dynamic params) async {
                   payload: {"isolate": "$id", "fileName": fileName}),
               'actionButtons': [
                 NotificationActionButton(
-                  key: 'cancelMega',
+                  key: 'cancel',
                   label: 'Cancel',
                 ),
               ],
@@ -221,7 +225,7 @@ void megaTask(dynamic params) async {
       pc.ParametersWithIV(pc.KeyParameter(key), iv),
     );
 
-  DateTime startTime = DateTime.now();
+  //DateTime startTime = DateTime.now();
 
   RandomAccessFile raf = await File("$savePath/.tmp").open(mode: FileMode.read);
   int chunkSize = 1024 * 8;
@@ -257,7 +261,7 @@ void megaTask(dynamic params) async {
             payload: {"isolate": "$id", "fileName": fileName}),
         'actionButtons': [
           NotificationActionButton(
-            key: 'cancelMega',
+            key: 'cancel',
             label: 'Cancel',
           ),
         ],
@@ -319,7 +323,7 @@ void megaTask(dynamic params) async {
 }
 
 // Sadly ffmpeg_kit_flutter plugin doesn't support isolates...
-// Unsupported operation: Background isolates do not support setMessageHandler(). Messages from the host platform always go to the root isolate.
+// 'Unsupported operation: Background isolates do not support setMessageHandler(). Messages from the host platform always go to the root isolate.'
 // For now task will run on main thread...
 
 /// Use ffmpeg to download playlist file as video file
@@ -393,6 +397,76 @@ void ffmpegTask(String url, String title) async {
   });
 }
 
+// This one needs more care that other providers...
+// Send 'post' request, get redirect link and download this link without veryfing cert
+void mp4uploadTask(dynamic params) async {
+  final sendPort = params[0]; // will be added by NotificationController
+  int id = params[1]; // will be added by NotificationController
+  String url = params[2];
+  String title = params[3];
+
+  Dio dio = Dio();
+  // Bypass cert verification...
+  dio.httpClientAdapter = IOHttpClientAdapter(
+    createHttpClient: () {
+      final HttpClient client =
+          HttpClient(context: SecurityContext(withTrustedRoots: false));
+      client.badCertificateCallback = (cert, host, port) => true;
+      return client;
+    },
+  );
+
+  final throttler = Throttler(milliseconds: 1000);
+  try {
+    await dio.download(
+      url,
+      '$savePath/title.mp4',
+      options: Options(headers: {"Referer": "https://www.mp4upload.com/"}),
+      onReceiveProgress: (received, total) {
+        //print("${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB");
+        throttler(
+          () => sendPort.send({
+            'content': NotificationContent(
+                id: id,
+                channelKey: 'downloader',
+                title: '$title.mp4',
+                body:
+                    "${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB",
+                progress: (received / total) * 100,
+                notificationLayout: NotificationLayout.ProgressBar,
+                locked: true,
+                payload: {"isolate": "$id", "fileName": '$title.mp4'}),
+            'actionButtons': [
+              NotificationActionButton(
+                key: 'cancel',
+                label: 'Cancel',
+              ),
+            ],
+          }),
+        );
+      },
+    );
+  } on DioException catch (_) {
+    sendPort.send({
+      'content': NotificationContent(
+        id: id,
+        channelKey: 'downloader',
+        title: "$title.mp4",
+        body: "Error occurred while downloading.",
+      ),
+    });
+  }
+
+  sendPort.send({
+    'content': NotificationContent(
+      id: id,
+      channelKey: 'downloader',
+      title: "$title.mp4",
+      body: "Download completed.",
+    ),
+  });
+}
+
 class Throttler {
   final int milliseconds;
   VoidCallback? action;
@@ -450,7 +524,7 @@ Future<void> initializeFileDownloader() async {
   ], androidConfig: [
     (Config.useCacheDir, Config.never),
     (Config.useExternalStorage, Config.always),
-    (Config.runInForeground, Config.always)
+    (Config.runInForeground, Config.always),
   ]).then((result) => log('Configuration result = $result'));
 
   FileDownloader()
