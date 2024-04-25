@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:app_links/app_links.dart';
+import 'package:receive_sharing_intent_plus/receive_sharing_intent_plus.dart';
+
 import 'download_kit.dart';
 
 String css = "";
@@ -48,8 +51,6 @@ void main() async {
         /* kDebugMode */ true);
   }
 
-  appLink = (await AppLinks().getInitialAppLink()).toString();
-
   runApp(MaterialApp(
       themeMode: ThemeMode.dark,
       theme: ThemeData(
@@ -69,7 +70,7 @@ class MyApp extends StatefulWidget {
   MyAppState createState() => MyAppState();
 }
 
-class MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class MyAppState extends State<MyApp> {
   final GlobalKey webViewKey = GlobalKey();
 
   InAppWebViewController? webViewController;
@@ -86,9 +87,11 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   double progress = 0;
 
+  // Get url from share intent
+  late StreamSubscription _textIntent;
+
   @override
   void initState() {
-    WidgetsBinding.instance.addObserver(this);
     super.initState();
 
     pullToRefreshController = PullToRefreshController(
@@ -96,28 +99,20 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
           color: Colors.white, backgroundColor: Colors.black),
       onRefresh: () async => webViewController?.reload(),
     );
+
+    // Opening shared url from outside the app while the app is in the memory
+    _textIntent = ReceiveSharingIntentPlus.getTextStream().listen(
+      (String value) {
+        if (!value.contains("shinden.pl")) return;
+        webViewController!.loadUrl(urlRequest: URLRequest(url: WebUri(value)));
+      },
+    );
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _textIntent.cancel();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    super.didChangeAppLifecycleState(state);
-
-    // Open shinden link in app (be sure to allow it in system settings!)
-    if (state == AppLifecycleState.resumed) {
-      appLink = (await AppLinks().getLatestAppLink()).toString();
-      if (appLink.isEmpty) return;
-      if (appLink.contains('shinden.pl')) {
-        webViewController?.loadUrl(
-            urlRequest: URLRequest(url: WebUri(appLink)));
-        appLink = '';
-      }
-    }
   }
 
   @override
@@ -133,17 +128,25 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
               Expanded(
                 child: InAppWebView(
                   key: webViewKey,
-                  initialUrlRequest: URLRequest(
-                    url: WebUri(
-                      appLink.contains('null')
-                          ? "https://shinden.pl/"
-                          : appLink,
-                    ),
-                  ),
+                  initialUrlRequest:
+                      URLRequest(url: WebUri("https://shinden.pl/")),
                   initialSettings: settings,
+                  gestureRecognizers: {
+                    Factory<OneSequenceGestureRecognizer>(
+                        () => LongPressGestureRecognizer()),
+                  },
                   pullToRefreshController: pullToRefreshController,
                   onWebViewCreated: (controller) async {
                     webViewController = controller;
+
+                    // Opening shared url from outside the app while the app is closed
+                    await ReceiveSharingIntentPlus.getInitialText()
+                        .then((String? value) {
+                      if (value == null) return;
+                      webViewController!.loadUrl(
+                        urlRequest: URLRequest(url: WebUri(value)),
+                      );
+                    });
 
                     // Utility
                     controller.addJavaScriptHandler(

@@ -15,12 +15,9 @@ class NotificationController {
 
     _receivePort!.listen((message) {
       if (message.containsKey('content')) {
-        NotificationContent content = message['content'];
-        List<NotificationActionButton>? actionButtons =
-            message['actionButtons'];
         AwesomeNotifications().createNotification(
-          content: content,
-          actionButtons: actionButtons,
+          content: message['content'],
+          actionButtons: message['actionButtons'],
         );
       }
     });
@@ -48,8 +45,8 @@ class NotificationController {
     await initialize();
 
     int isolateId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    args.insert(0, _uiSendPort);    // add port to comunicate between isolates
-    args.insert(1, isolateId);      // add id to use as notification id
+    args.insert(0, _uiSendPort); // add port to comunicate between isolates
+    args.insert(1, isolateId); // add id to use as notification id
 
     Isolate isolate = await Isolate.spawn(entryPoint, [...args]);
     _isolates[isolateId] = isolate;

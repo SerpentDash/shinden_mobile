@@ -32,17 +32,9 @@ part 'notification_controller.dart';
 String savePath = '/sdcard/Download/Shinden';
 
 void process(controller, url, fileName, mode) async {
-  String title = /* sanitizeFilename */ (fileName.toString().trim());
-/*   if (p.basename(title).split('.')[0] == "video") {
-    // rename generic file name to one before last pathSegment
-    Uri u = Uri.parse(url);
-    title = u.pathSegments[u.pathSegments.length - 2];
-  }
-  String ext = p.extension(title); */
-
+  String title =fileName.toString().trim();
   switch (mode) {
     case 'stream':
-      /* if (ext != '') title = title.substring(0, title.length - ext.length); */
       AndroidIntent(
         action: 'action_view',
         type: "video/*",
@@ -51,16 +43,7 @@ void process(controller, url, fileName, mode) async {
       ).launch();
       break;
     case 'download':
-      /* if (ext == '') title += '.mp4'; */
       download(url, fileName);
-      /* !(await File('$savePath/$title').exists() ||
-              await File('$savePath/$title.tmp').exists())
-          ? downloadQueueAdd(url, title)
-          : NativeToast().makeText(
-              message: _task.fileName == title
-                  ? 'Already in Queue'
-                  : 'File already exists!',
-              duration: NativeToast.longLength); */
       break;
     default:
       break;
@@ -179,7 +162,7 @@ void megaTask(dynamic params) async {
     final dio = Dio();
     await dio.download(
       url,
-      "$savePath/.tmp",
+      "$savePath/tmp",
       onReceiveProgress: (received, total) {
         if (total != -1) {
           throttler(
@@ -225,9 +208,7 @@ void megaTask(dynamic params) async {
       pc.ParametersWithIV(pc.KeyParameter(key), iv),
     );
 
-  //DateTime startTime = DateTime.now();
-
-  RandomAccessFile raf = await File("$savePath/.tmp").open(mode: FileMode.read);
+  RandomAccessFile raf = await File("$savePath/tmp").open(mode: FileMode.read);
   int chunkSize = 1024 * 8;
   int totalChunks = (await raf.length() / chunkSize).ceil();
   int chunkIndex = 0;
@@ -269,47 +250,9 @@ void megaTask(dynamic params) async {
     );
   }
 
-  // Close the file
+  // Close and remove temp file
   await raf.close();
-
-  /* final Stream<List<int>> chunks = encryptedFile.openRead();
-  int currentChunk = 0;
-  int totalChunks = await chunks.length;
-
-
-  await for (final chunk in chunks) {
-    final decryptedChunk = fileCipher.process(Uint8List.fromList(chunk));
-
-    outputFileSink.add(decryptedChunk);
-
-    currentChunk++;
-    throttler(
-      () => sendPort.send({
-        'content': NotificationContent(
-            id: id,
-            channelKey: 'downloader',
-            title: fileName,
-            body: '$currentChunk / ${totalChunks / 4096}',
-            progress: (currentChunk / totalChunks) * 100,
-            notificationLayout: NotificationLayout.ProgressBar,
-            locked: true,
-            payload: {"isolate": "$id", "fileName": fileName}),
-        'actionButtons': [
-          NotificationActionButton(
-            key: 'cancelMega',
-            label: 'Cancel',
-          ),
-        ],
-      }),
-    );
-  }
-
-  // Close the sink to finish writing to the file
-  outputFileSink.close();
-
-  DateTime endTime = DateTime.now();
-  Duration taskDuration = endTime.difference(startTime);
-   */
+  File("$savePath/tmp").delete();
 
   sendPort.send({
     'content': NotificationContent(
@@ -317,7 +260,6 @@ void megaTask(dynamic params) async {
       channelKey: 'downloader',
       title: fileName,
       body: "Download completed.",
-      /* body: 'Task Time: ${taskDuration.inSeconds} seconds', */
     ),
   });
 }

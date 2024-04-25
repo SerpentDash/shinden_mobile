@@ -225,7 +225,7 @@ void doodPlayer(controller, url, mode) async {
     return;
   }
   log('request 2: https://d0000d.com${watch}1&ref2=&adb=0&ftor=0');
-  var r2 = await http.get(
+  await http.get(
     Uri.parse("https://d0000d.com${watch}1&ref2=&adb=0&ftor=0"),
     headers: {"Referer": newUrl},
   );
