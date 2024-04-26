@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -90,6 +89,32 @@ class MyAppState extends State<MyApp> {
   // Get url from share intent
   late StreamSubscription _textIntent;
 
+  // Allow users to copy links to clipboard
+  // By default, webview won't show context menu on long pressing link elements
+  late ContextMenu contextMenu = ContextMenu(
+    onCreateContextMenu: (hitTestResult) async {
+      if (hitTestResult.type != InAppWebViewHitTestResultType.SRC_ANCHOR_TYPE) return;
+
+      final snackBar = SnackBar(
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(hitTestResult.extra!)),
+            SnackBarAction(
+              label: 'Copy to clipboard',
+              backgroundColor: const Color(0xFF404040),
+              onPressed: () => Clipboard.setData(
+                ClipboardData(text: hitTestResult.extra!),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    },
+  );
+
   @override
   void initState() {
     super.initState();
@@ -131,10 +156,7 @@ class MyAppState extends State<MyApp> {
                   initialUrlRequest:
                       URLRequest(url: WebUri("https://shinden.pl/")),
                   initialSettings: settings,
-                  gestureRecognizers: {
-                    Factory<OneSequenceGestureRecognizer>(
-                        () => LongPressGestureRecognizer()),
-                  },
+                  contextMenu: contextMenu,
                   pullToRefreshController: pullToRefreshController,
                   onWebViewCreated: (controller) async {
                     webViewController = controller;

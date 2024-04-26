@@ -1,5 +1,6 @@
 /* Heavily modified version of: https://gist.github.com/antipainK/c39bc269e07c597203544ed7ff91745b */
 /* Right now its complete mess and I don't have time (or will power) to clean this up */
+::selection { color: black; background: rgb(201, 201, 201) }
 .dropdown {position: relative; display: inline-block;}
 .dropdown.button {display: none;}
 .dropdown-content {display: none; position: absolute; z-index: 9999; width: 100%;}

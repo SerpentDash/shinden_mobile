@@ -318,6 +318,9 @@
         }
     }
 
+    // disable drag event on long pressing link elements
+    window.ondragstart = function() {return false}
+
     /* 
     function changeImagesSizes(parent, container, before) {
         var images = parent;
