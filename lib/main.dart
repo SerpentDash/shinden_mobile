@@ -165,16 +165,11 @@ class MyAppState extends State<MyApp> {
 
                     // From players_handler.dart
                     // Add handlers for supported video providers
-                    for (var entry in playersHandlers) {
-                      controller.addJavaScriptHandler(
-                        handlerName: entry.key,
-                        callback: (args) async {
-                          // args[0] = url
-                          // args[1] = mode (stream or download)
-                          entry.value(controller, args[0], args[1]);
-                        },
-                      );
-                    }
+                    controller.addJavaScriptHandler(
+                      handlerName: 'handle_link',
+                      callback: (args) =>
+                          handleLink(controller, args[0], args[1]),
+                    );
                   },
                   onLoadStart: (controller, url) async {
                     pullToRefreshController?.setEnabled(true);

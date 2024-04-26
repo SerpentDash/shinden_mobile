@@ -16,22 +16,22 @@
         await fetch(url, { credentials: 'include' }).then(async r => callback && callback(await r.text()));
     }
 
+    // Names of providers on website
     const providers = [
-        { name: 'cda', handler: 'open_cda' },
-        { name: 'gdrive', handler: 'open_gdrive' },
-        { name: 'drive.google', handler: 'open_gdrive' },
-        { name: 'sibnet', handler: 'open_sibnet' },
-        { name: 'streamtape', handler: 'open_streamtape' },
-        { name: 'mp4upload', handler: 'open_mp4upload' },
-        { name: 'dailymotion', handler: 'open_dailymotion' },
-        { name: 'supervideo', handler: 'open_supervideo' },
-        { name: 'dood', handler: 'open_dood' },
-        { name: 'vk', handler: 'open_vk' },
-        { name: 'okru', host: "ok.ru", handler: 'open_okru' },
-        { name: 'yourupload', handler: 'open_yourupload' },
-        { name: 'aparat', host: "wolfstream", handler: 'open_aparat' },
-        { name: 'default', host: "filemoon", handler: 'open_default' }, // can be more hosts...
-        { name: 'mega', handler: 'open_mega' },
+        'cda',
+        'gdrive',
+        'sibnet',
+        'streamtape',
+        'mp4upload',
+        'dailymotion',
+        'supervideo',
+        'dood',
+        'vk',
+        'okru',
+        'yourupload',
+        'aparat',
+        'default',
+        'mega',
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
@@ -54,7 +54,7 @@
 
             let providerName = elements[i].parentElement.firstElementChild.innerText.toLowerCase();
 
-            if (providers.some(provider => provider.name === providerName)) {
+            if (providers.some(provider => providerName == provider)) {
                 let _dropdown = dropdown.cloneNode(true);
                 clone.after(_dropdown);
                 clone.remove();
@@ -64,9 +64,6 @@
                 _dropdown.children[1].children[1].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[1].innerText);
 
                 switch (providerName) {
-                    /* case 'supervideo': // only stream
-                        _dropdown.children[1].children[1].remove();
-                        break; */
                     case 'mp4upload': // only download
                     case 'yourupload':
                     case 'dood':
@@ -138,18 +135,14 @@
         link = link.src || link.href;
         console.log(link);
 
-        // Pass url to supported handlers
+        // Pass url to be handled in flutter side
         if (current_mode != '') {
-            for (const provider of providers) {
-                if ((provider?.host && link.includes(provider.host)) || link.includes(provider.name)) {
-                    window.flutter_inappwebview.callHandler(provider.handler, link, current_mode);
-                    setTimeout(() => {
-                        selectButton(null);
-                        container.innerHTML = "";
-                    }, 1000);
-                    return;
-                }
-            }
+            window.flutter_inappwebview.callHandler('handle_link', link, current_mode);
+            setTimeout(() => {
+                selectButton(null);
+                container.innerHTML = "";
+            }, 1000);
+            return;
         }
 
         location.assign(link);

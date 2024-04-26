@@ -4,22 +4,43 @@ part of 'download_kit.dart';
 // Video providers that utilize requests from servers
 //
 
-const List<MapEntry<String, Function>> playersHandlers = [
-  MapEntry('open_cda', cdaPlayer),
-  MapEntry('open_gdrive', gdrivePlayer),
-  MapEntry('open_sibnet', sibnetPlayer),
-  MapEntry('open_streamtape', streamtapePlayer),
-  MapEntry('open_mp4upload', mp4uploadPlayer),
-  MapEntry('open_dood', doodPlayer),
-  MapEntry('open_dailymotion', dailymotionPlayer),
-  MapEntry('open_supervideo', supervideoPlayer),
-  MapEntry('open_vk', vkPlayer),
-  MapEntry('open_okru', okruPlayer),
-  MapEntry('open_yourupload', youruploadPlayer),
-  MapEntry('open_aparat', aparatPlayer),
-  MapEntry('open_default', defaultPlayer),
-  MapEntry('open_mega', megaPlayer),
+// Supported host names with their handlers
+const List<MapEntry<List<String>, Function>> handlers = [
+  MapEntry(['cda'], cdaPlayer),
+  MapEntry(['drive.google'], gdrivePlayer),
+  MapEntry(['sibnet'], sibnetPlayer),
+  MapEntry(['streamtape'], streamtapePlayer),
+  MapEntry(['mp4upload'], mp4uploadPlayer),
+  MapEntry(['dood', 'd000d', 'd0000d'], doodPlayer), // ...
+  MapEntry(['dailymotion'], dailymotionPlayer),
+  MapEntry(['supervideo'], supervideoPlayer),
+  MapEntry(['vk'], vkPlayer),
+  MapEntry(['ok.ru'], okruPlayer),
+  MapEntry(['yourupload'], youruploadPlayer),
+  MapEntry(['wolfstream'], aparatPlayer),
+  MapEntry([
+    'filemoon', /* 'streamvid' */
+  ], defaultPlayer), // there are more hosts...
+  MapEntry(['mega'], megaPlayer),
 ];
+
+void handleLink(controller, url, mode) {
+  final link = Uri.parse(url);
+  log("Link: ${link.host}");
+
+  // Use correct handler for current url
+  for (final handler in handlers) {
+    if (handler.key.any((host) => link.host.contains(host))) {
+      handler.value(controller, url, mode);
+      return;
+    }
+  }
+
+  // No match found, show error msg to user
+  controller.evaluateJavascript(
+      source:
+          'alert(`No available handler for this link\nChoose other player.`)');
+}
 
 void cdaPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
@@ -211,23 +232,23 @@ void doodPlayer(controller, url, mode) async {
   var r1 = await http.get(Uri.parse(url));
   final body = r1.body;
 
-  final newUrl = url.toString().replaceFirst("dood.yt", "d0000d.com");
-  /* r1.headers.entries.firstWhere((element) => element.key == "domain").value; */
-  //log("newUrl: $newUrl");
+  // In case domain changed after request
+  RegExp regExp = RegExp(r'domain=\.([^.]+\.com)');
+  final host = regExp.firstMatch(r1.headers.toString())!.group(1)!;
+  url = Uri.parse(url).replace(host: host).toString();
 
   final watchRegex = RegExp(r'\/dood\?op=watch[^"]+');
   final watch = watchRegex.firstMatch(body)?.group(0);
-  log("watch: $watch");
 
   if (watch == null) {
     controller.evaluateJavascript(
         source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
-  log('request 2: https://d0000d.com${watch}1&ref2=&adb=0&ftor=0');
+
   await http.get(
-    Uri.parse("https://d0000d.com${watch}1&ref2=&adb=0&ftor=0"),
-    headers: {"Referer": newUrl},
+    Uri.parse("https://$host${watch}1&ref2=&adb=0&ftor=0"),
+    headers: {"Referer": url},
   );
 
   final md5Regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
@@ -242,9 +263,8 @@ void doodPlayer(controller, url, mode) async {
   final token = tokenRegex.firstMatch(body)!.group(1);
   //log("Token: $token");
 
-  //log('request 3: https://d0000d.com$md5');
-  var r3 = await http
-      .get(Uri.parse("https://d0000d.com$md5"), headers: {"Referer": newUrl});
+  var r3 =
+      await http.get(Uri.parse("https://$host$md5"), headers: {"Referer": url});
 
   final directLink = "${r3.body}${generateRandomString(token)}";
 
@@ -305,7 +325,7 @@ void supervideoPlayer(controller, url, mode) async {
       validateStatus: (status) => true,
       headers: {
         'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'
+            "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
       },
     ),
   );
@@ -353,7 +373,7 @@ void supervideoPlayer(controller, url, mode) async {
 void vkPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
     'User-Agent':
-        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
   });
   final body = response.body;
 
@@ -392,7 +412,7 @@ void vkPlayer(controller, url, mode) async {
 void okruPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
     'User-Agent':
-        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
+        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
   });
   String body = response.body;
 
@@ -475,26 +495,33 @@ void youruploadPlayer(controller, url, mode) async {
 }
 
 void aparatPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url), headers: {
+  final headers = {
     'User-Agent':
-        'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
-  });
+        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
+  };
+
+  var response = await http.get(Uri.parse(url), headers: headers);
 
   final body = response.body;
 
   RegExp regExp = RegExp(r'file:\s*\"(.*?)\"');
 
-  final directLink = regExp.firstMatch(body)?.group(1);
+  var directLink = regExp.firstMatch(body)?.group(1);
 
   if (directLink == null) {
     controller.evaluateJavascript(
         source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
-  //log(directLink);
 
   Uri u = Uri.parse(url);
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
+
+  var master = await http.get(Uri.parse(directLink), headers: headers);
+  RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
+
+  directLink = regex.allMatches(master.body).last.group(0)!;
+  //log(directLink);
 
   switch (mode) {
     case 'stream':
@@ -506,16 +533,7 @@ void aparatPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      var master = await http.get(Uri.parse(directLink), headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.118 Mobile Safari/537.36',
-      });
-
-      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
-      Iterable<Match> matches = regex.allMatches(master.body);
-
-      log(matches.last.group(0)!);
-      ffmpegTask(matches.last.group(0)!, title);
+      ffmpegTask(directLink, title);
       break;
     default:
       break;
@@ -523,7 +541,15 @@ void aparatPlayer(controller, url, mode) async {
 }
 
 void defaultPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url));
+  // Add user agent to be able to open url in external video player
+  final Map<String, String> headers = mode == "stream"
+      ? {
+          'User-Agent':
+              "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
+        }
+      : const {};
+
+  var response = await http.get(Uri.parse(url), headers: headers);
   final body = response.body;
 
   // Get obfuscated url
@@ -567,10 +593,15 @@ void defaultPlayer(controller, url, mode) async {
     directLink = directLink.replaceRange(start, end, array[newValue]);
   }
 
-  //log(directLink);
-
   Uri u = Uri.parse(url);
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
+
+  // Get highest quality link
+  var master = await http.get(Uri.parse(directLink), headers: headers);
+  RegExp masterRegex = RegExp(r'https?://[^\s]+index[^\s]*');
+
+  directLink = masterRegex.allMatches(master.body).last.group(0)!;
+  //log(directLink);
 
   switch (mode) {
     case 'stream':
@@ -582,14 +613,7 @@ void defaultPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      log(directLink);
-      var master = await http.get(Uri.parse(directLink));
-
-      RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
-      Iterable<Match> matches = regex.allMatches(master.body);
-
-      ffmpegTask(matches.last.group(0)!, title);
-
+      ffmpegTask(directLink, title);
       break;
     default:
       break;
