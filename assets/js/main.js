@@ -73,7 +73,11 @@
 
                     item.append(counter.cloneNode(true));
                     
+                    item.children[0].classList = "";
                     item.children[0].href = episode_list.children[1].href;
+                    item.children[0].style = `background-image: url(${item.children[0].firstChild.src});`;
+                    item.children[0].firstChild.remove();
+
                     item.children[1].innerText = item.children[1].title;
                 });
 

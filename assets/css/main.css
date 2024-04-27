@@ -301,6 +301,7 @@ h2.box-title {padding-left: 10px;}
 .title-rel { padding: 0 15px}
 .l-container-primary, .l-main-contantainer{ background-color: #181818;  margin-top: 0 !important;}
 .l-main-contantainer{ padding-top: 5px; }
+@media (min-width: 75vw) {.notif-total-notif span { display: none !important; } }
 .row {margin: 0 !important}
 .carousel-text-data:not(.recomm) {height: 160px}
 .recomm {height: 180px}
@@ -313,20 +314,20 @@ h2.box-title {padding-left: 10px;}
 .btnla {line-height: 29px !important; margin-top: 4px;}
 .top-bar--user button {margin-left: 10px; margin-top: 0px; line-height: 1; height: 31px !important}
 .top-bar--user button.active{ background:  rgb(66, 66, 66) !important; border-radius: 25%; }
+.top-bar--user .mobile-visible { display: inline-flex !important; overflow: hidden; max-width: 30vw;}
 .btnWL i {font-size: 1.6em;}
 #la { overflow: auto; position: fixed; background-color: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none;}
 #la.show {opacity: 1;}
 #la .container, #la .contantainer { background-color: unset; padding: 7px}
 #la .media-item .media-title-cover { background: unset}
 li img.img.media-title-cover { width: 120px}
-#la .media-item { padding: 0 0 10px; }
-#la .open-in-full-page { display: none; position: relative; }
+#la .open-in-full-page { display: none !important; position: relative; }
 #la a, #la ul.wait-to-attention .info-line { color: white !important; }
-#la ul.wait-to-attention {display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; margin-top: 3px;}
-#la ul.wait-to-attention li { height: 100%; position: relative; margin: 0 !important; max-width: unset !important; min-width: unset !important; border-bottom: none; }
-#la ul.wait-to-attention a.img { float: unset;}
+#la ul.wait-to-attention {display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 8px;}
+#la ul.wait-to-attention li { display: flex; height: 42.5vw; padding: 0 !important; position: relative; margin: 0 !important; max-width: unset !important; min-width: unset !important; border-bottom: none; }
+#la ul.wait-to-attention li :first-child {background-size: cover; background-position: center; flex: 1; border-radius: 10px; }
 #la ul.wait-to-attention a.img img { height: 100%; width: 97%; filter: brightness(.85); max-width: unset !important; max-height: unset !important; object-fit: unset; border-radius: 10px;}
-#la ul.wait-to-attention a.title { display: block; position: absolute; overflow: hidden; bottom: 0; padding-bottom: 15px; padding-left: 10px; font-size: .8rem; text-overflow: ellipsis; text-shadow: 0px 0px 4px black; text-decoration: none; pointer-events: none; }
+#la ul.wait-to-attention a.title { display: block; position: absolute; overflow: hidden; bottom: 0; padding-bottom: 7px; padding-left: 10px; font-size: .8rem; text-overflow: ellipsis; text-shadow: 0px 0px 4px black; text-decoration: none; pointer-events: none; }
 #la ul.wait-to-attention .episode-list { display: none; }
 #la ul.wait-to-attention .info-line { display: none; }
 #la .border-inner { position: fixed; border: 10px solid rgb(66,66,66); background-color: transparent; border-radius: 32px; inset: 0; z-index: 99999; margin: 2px 2px 0; top: 38px }
