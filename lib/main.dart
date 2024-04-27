@@ -26,14 +26,12 @@ final urlWhiteList = [
   "jsdelivr",
   "spolecznosci",
   "youtube",
-  "ckeditor"
+  "ckeditor",
+  "google.com/recaptcha"
 ];
 
 String tempUrl = "";
 String tempRequest = "";
-String tempWebsite = "";
-
-String appLink = '';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,8 +81,6 @@ class MyAppState extends State<MyApp> {
   );
 
   PullToRefreshController? pullToRefreshController;
-
-  double progress = 0;
 
   // Get url from share intent
   late StreamSubscription _textIntent;
@@ -179,11 +175,6 @@ class MyAppState extends State<MyApp> {
                         handlerName: 'no_reload',
                         callback: (args) =>
                             pullToRefreshController?.setEnabled(false));
-                    controller.addJavaScriptHandler(
-                        handlerName: 'back_button',
-                        callback: (args) async => await controller
-                            .canGoBack()
-                            .then((value) => controller.goBack()));
 
                     // From players_handler.dart
                     // Add handlers for supported video providers
@@ -221,6 +212,12 @@ class MyAppState extends State<MyApp> {
                   shouldInterceptRequest: (controller, request) async {
                     tempRequest = request.url.toString();
 
+                    // White list
+                    if (!urlWhiteList.any((el) => tempRequest.contains(el))) {
+                      NavigationActionPolicy.CANCEL;
+                      return WebResourceResponse();
+                    }
+
                     // Adblock
                     for (var i = 0; i < hosts.length; i++) {
                       if (tempRequest.contains(hosts.elementAt(i))) {
@@ -229,20 +226,8 @@ class MyAppState extends State<MyApp> {
                       }
                     }
 
-                    // White list
-                    if (!urlWhiteList.any((el) => tempRequest.contains(el))) {
-                      NavigationActionPolicy.CANCEL;
-                      return WebResourceResponse();
-                    }
-
-                    //log("$tempUrl, $tempRequest");
                     return null;
                   },
-                  /* onPermissionRequest: (controller, request) async {
-                    return PermissionResponse(
-                        resources: request.resources,
-                        action: PermissionResponseAction.GRANT);
-                  }, */
                   onLoadStop: (controller, url) async {
                     pullToRefreshController?.endRefreshing();
                   },
