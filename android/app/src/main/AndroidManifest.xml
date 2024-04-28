@@ -24,7 +24,7 @@
             android:launchMode="singleInstance"
             android:theme="@style/LaunchTheme"
             android:screenOrientation="sensorPortrait" 
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
             <meta-data
