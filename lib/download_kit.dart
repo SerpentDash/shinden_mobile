@@ -32,7 +32,7 @@ part 'notification_controller.dart';
 String savePath = '/sdcard/Download/Shinden';
 
 void process(controller, url, fileName, mode) async {
-  String title =fileName.toString().trim();
+  String title = fileName.toString().trim();
   switch (mode) {
     case 'stream':
       AndroidIntent(
@@ -114,10 +114,7 @@ void megaTask(dynamic params) async {
     ]),
   );
 
-  // Parse json
-  final jsonResponse = jsonDecode(apiResponse.body);
-
-  if (jsonResponse == [-9]) {
+  if (apiResponse.body == '[-6]' || apiResponse.body == '[-9]') {
     sendPort.send({
       'content': NotificationContent(
         id: id,
@@ -128,6 +125,8 @@ void megaTask(dynamic params) async {
     log("Error: File does not exist");
     return;
   }
+  // Parse json
+  final jsonResponse = jsonDecode(apiResponse.body);
 
   String url = jsonResponse[0]['g'];
   //int size = jsonResponse[0]['s'];
@@ -156,7 +155,7 @@ void megaTask(dynamic params) async {
 
   //print("File: $fileName, Size:  ${size ~/ (1024 * 1024)}MB");
 
-  final throttler = Throttler(milliseconds: 1000);
+  final throttler = Throttler(milliseconds: 2000);
   // Start downloading encrypted file
   try {
     final dio = Dio();
@@ -197,8 +196,8 @@ void megaTask(dynamic params) async {
         body: "Error: Download limit reached. Try again later",
       ),
     });
-    print("Error: Download limit reached. Try again later");
-    print(ex.toString());
+    log("Error: Download limit reached. Try again later");
+    log(ex.toString());
     return;
   }
 
@@ -208,24 +207,21 @@ void megaTask(dynamic params) async {
       pc.ParametersWithIV(pc.KeyParameter(key), iv),
     );
 
-  RandomAccessFile raf = await File("$savePath/tmp").open(mode: FileMode.read);
-  int chunkSize = 1024 * 8;
-  int totalChunks = (await raf.length() / chunkSize).ceil();
+  final file = File("$savePath/tmp");
+
+  // Values to show progress in notification
+  final totalChunks = await file.openRead().length;
   int chunkIndex = 0;
 
-  final outputFileSink = File("$savePath/$fileName").openWrite();
+  // Get chunks from downloaded, encrypted file
+  final stream = file.openRead();
 
-  while (chunkIndex < totalChunks) {
-    // Calculate the size of the current chunk (it may be smaller than chunkSize for the last chunk)
-    int currentChunkSize = chunkIndex == totalChunks - 1
-        ? await raf.length() - (chunkIndex * chunkSize)
-        : chunkSize;
+  // Open file to save decrypted chunks
+  final sink = File("$savePath/$fileName").openWrite();
 
-    Uint8List chunk = await raf.read(currentChunkSize);
-
-    final decryptedChunk = fileCipher.process(chunk);
-
-    outputFileSink.add(decryptedChunk);
+  await for (final chunk in stream) {
+    // Save decrypted chunks to file
+    sink.add(fileCipher.process(Uint8List.fromList(chunk)));
 
     chunkIndex++;
     throttler(
@@ -250,9 +246,9 @@ void megaTask(dynamic params) async {
     );
   }
 
-  // Close and remove temp file
-  await raf.close();
-  File("$savePath/tmp").delete();
+  await sink.flush();
+  await sink.close();
+  await File("$savePath/tmp").delete();
 
   sendPort.send({
     'content': NotificationContent(

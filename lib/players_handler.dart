@@ -18,15 +18,13 @@ const List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['ok.ru'], okruPlayer),
   MapEntry(['yourupload'], youruploadPlayer),
   MapEntry(['wolfstream'], aparatPlayer),
-  MapEntry([
-    'filemoon', /* 'streamvid' */
-  ], defaultPlayer), // there are more hosts...
+  MapEntry(['filemoon'], defaultPlayer), // 'streamvid' there are more hosts...
   MapEntry(['mega'], megaPlayer),
 ];
 
 void handleLink(controller, url, mode) {
   final link = Uri.parse(url);
-  log("Link: ${link.host}");
+  //log("Link: ${link.host}");
 
   // Use correct handler for current url
   for (final handler in handlers) {
