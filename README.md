@@ -4,7 +4,6 @@
 Hobby project that allows users to watch content from shinden.pl in mobile app.
 
 App was made for my own purposes.
-This project is far from perfect, but it should be usable.
 
 ## Status => W.I.P
 
@@ -16,7 +15,7 @@ Even though most functions **should** work, I don't guarantee they **will** work
 
 Flutter shows webview with shinden webpage, injects css and js files to change how page looks and add / fix some functionalities. 
 
-App allows you to watch videos from multiple providers (in highest available quality) in external video players.
+App allows users to watch videos from multiple providers (in highest available quality) in external video players.
 
 ## What's inside
 
@@ -25,7 +24,7 @@ App allows you to watch videos from multiple providers (in highest available qua
 - Lot's of UI changes / fixes
 - AdBlock
 - New Watch List
-- App Link - open shinden link in app rather than in browser (enable in system settings first!)
+- Open shinden link in app rather than using browser (use share button and select shinden app)
 - Stream to external video player (Next Player, VLC, MX Player etc) or download videos
     - app handles some popular video providers
     - more to come (maybe)
