@@ -63,6 +63,14 @@ android {
             minifyEnabled true
         }
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "shinden_mobile-${variant.versionName}-${output.getFilter(com.android.build.OutputFile.ABI)}-${variant.buildType.name}.apk"
+        }
+    }
+
+    
 }
 
 flutter {
