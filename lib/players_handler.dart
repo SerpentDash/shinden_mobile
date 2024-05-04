@@ -313,6 +313,11 @@ void dailymotionPlayer(controller, url, mode) async {
 }
 
 void supervideoPlayer(controller, url, mode) async {
+  final headers = {
+    'User-Agent':
+        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
+  };
+
   //url = url.replaceFirst("tv", "cc");
 
   // Send request for direct link
@@ -321,10 +326,7 @@ void supervideoPlayer(controller, url, mode) async {
     url,
     options: Options(
       validateStatus: (status) => true,
-      headers: {
-        'User-Agent':
-            "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
-      },
+      headers: headers,
     ),
   );
 
@@ -361,7 +363,8 @@ void supervideoPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      ffmpegTask(directLink, title);
+      NotificationController.startIsolate(
+          playlistTask, [directLink, title, headers]);
       break;
     default:
       break;
@@ -515,12 +518,6 @@ void aparatPlayer(controller, url, mode) async {
   Uri u = Uri.parse(url);
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
-  var master = await http.get(Uri.parse(directLink), headers: headers);
-  RegExp regex = RegExp(r'https?://[^\s]+index[^\s]*');
-
-  directLink = regex.allMatches(master.body).last.group(0)!;
-  //log(directLink);
-
   switch (mode) {
     case 'stream':
       AndroidIntent(
@@ -531,7 +528,8 @@ void aparatPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      ffmpegTask(directLink, title);
+      NotificationController.startIsolate(
+          playlistTask, [directLink, title, headers]);
       break;
     default:
       break;
@@ -594,12 +592,12 @@ void defaultPlayer(controller, url, mode) async {
   Uri u = Uri.parse(url);
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
-  // Get highest quality link
+/*   // Get highest quality link
   var master = await http.get(Uri.parse(directLink), headers: headers);
   RegExp masterRegex = RegExp(r'https?://[^\s]+index[^\s]*');
 
   directLink = masterRegex.allMatches(master.body).last.group(0)!;
-  //log(directLink);
+  //log(directLink); */
 
   switch (mode) {
     case 'stream':
@@ -611,7 +609,8 @@ void defaultPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      ffmpegTask(directLink, title);
+      NotificationController.startIsolate(
+          playlistTask, [directLink, title, headers]);
       break;
     default:
       break;

@@ -16,9 +16,7 @@ import 'package:deep_pick/deep_pick.dart';
 import 'package:hex/hex.dart';
 import 'package:pointycastle/export.dart' as pc;
 
-import 'package:ffmpeg_kit_flutter_https/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_https/ffprobe_kit.dart';
-import 'package:ffmpeg_kit_flutter_https/return_code.dart';
+import 'package:flutter_hls_parser/flutter_hls_parser.dart';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
@@ -260,79 +258,114 @@ void megaTask(dynamic params) async {
   });
 }
 
-// Sadly ffmpeg_kit_flutter plugin doesn't support isolates...
-// 'Unsupported operation: Background isolates do not support setMessageHandler(). Messages from the host platform always go to the root isolate.'
-// For now task will run on main thread...
+/// Download playlist (m3u8) as mp4
+void playlistTask(dynamic params) async {
+  final sendPort = params[0]; // will be added by NotificationController
+  int id = params[1]; // will be added by NotificationController
+  String url = params[2];
+  String title = params[3];
+  Map<String, String> headers = params[4];
 
-/// Use ffmpeg to download playlist file as video file
-void ffmpegTask(String url, String title) async {
-  int id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-
-  await NotificationController.initialize();
-
-  AwesomeNotifications().createNotification(
-    content: NotificationContent(
+  sendPort.send({
+    'content': NotificationContent(
       id: id,
       channelKey: 'downloader',
       title: "$title.mp4",
       body: "Preparing...",
     ),
-  );
+  });
 
-  // Get duration of video to use in progress notification
-  double duration = await FFprobeKit.getMediaInformation(url).then(
-    (session) async => double.parse(
-      (double.parse(session.getMediaInformation()!.getDuration()!) * 1000)
-          .toStringAsFixed(3),
-    ),
-  );
-
-  // Slow down notification updates
-  final throttler = Throttler(milliseconds: 2000);
-
-  // Start the FFmpeg task
-  final command = '-threads 4 -i $url -c copy -y "$savePath/$title.mp4"';
-  FFmpegKit.executeAsync(command, (session) async {
-    final returnCode = await session.getReturnCode();
-
-    AwesomeNotifications().createNotification(
-      content: NotificationContent(
+  // Get highest quality url from master file
+  final highestQualityUrl =
+      await getHighestQualityUrl(Uri.parse(url), headers: headers);
+  if (highestQualityUrl == null) {
+    sendPort.send({
+      'content': NotificationContent(
         id: id,
         channelKey: 'downloader',
-        title: "$title.mp4",
-        body: ReturnCode.isSuccess(returnCode)
-            ? "Download completed."
-            : ReturnCode.isCancel(returnCode)
-                ? "Download canceled by user."
-                : "Error occurred while downloading.",
+        title: "Error: File does not exist",
       ),
-    );
-  }, (log) {
-    //print(log.getMessage());
-  }, (statistics) {
-    // log("${statistics.getTime()}");
-    throttler(() {
-      double progress = statistics.getTime();
-      AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: id,
-          channelKey: 'downloader',
-          notificationLayout: NotificationLayout.ProgressBar,
-          title: "$title.mp4",
-          progress: (progress / duration) * 100,
-          body: "${formatDuration(progress)} / ${formatDuration(duration)}",
-          payload: {"session": "${statistics.getSessionId()}"},
-          locked: true,
-        ),
-        actionButtons: [
-          NotificationActionButton(
-            key: 'cancelFfmpeg',
-            label: 'Cancel',
-          ),
-        ],
-      );
     });
-  });
+    log("Error: File does not exist");
+    return;
+  }
+
+  final media = await http.get(Uri.parse(highestQualityUrl), headers: headers);
+  final mediaPlaylist = await HlsPlaylistParser.create()
+      .parseString(Uri.parse(highestQualityUrl), media.body);
+  mediaPlaylist as HlsMediaPlaylist;
+
+  final segments =
+      mediaPlaylist.segments.map((segment) => segment.url).toList();
+
+  final sink = File('$savePath/$title.mp4').openWrite();
+
+  final throttler = Throttler(milliseconds: 2000);
+
+  try {
+    // Download each segment and save to file
+    for (final segment in segments) {
+      final segmentData =
+          await http.readBytes(Uri.parse(segment!), headers: headers);
+      sink.add(segmentData);
+      throttler(
+        () => sendPort.send({
+          'content': NotificationContent(
+              id: id,
+              channelKey: 'downloader',
+              title: '$title.mp4',
+              body:
+                  "Segment: ${segments.indexOf(segment) + 1} / ${segments.length}",
+              progress: ((segments.indexOf(segment) + 1) / segments.length) * 100,
+              notificationLayout: NotificationLayout.ProgressBar,
+              locked: true,
+              payload: {"isolate": "$id", "fileName": '$title.mp4'}),
+          'actionButtons': [
+            NotificationActionButton(
+              key: 'cancel',
+              label: 'Cancel',
+            ),
+          ],
+        }),
+      );
+      log('Progress: ${segments.indexOf(segment) + 1} / ${segments.length}');
+    }
+    sendPort.send({
+      'content': NotificationContent(
+        id: id,
+        channelKey: 'downloader',
+        title: '$title.mp4',
+        body: "Download completed.",
+      ),
+    });
+  } catch (e) {
+    sendPort.send({
+      'content': NotificationContent(
+        id: id,
+        channelKey: 'downloader',
+        body: "Error: $e",
+      ),
+    });
+    log('Error: $e');
+  } finally {
+    await sink.flush();
+    await sink.close();
+  }
+}
+
+// Sort available links and get the highest quality one
+Future<String?> getHighestQualityUrl(Uri masterUrl,
+    {headers = const {}}) async {
+  final master = await http.get(masterUrl, headers: headers);
+  if (master.statusCode != 200) return null;
+
+  final masterPlayList =
+      await HlsPlaylistParser.create().parseString(masterUrl, master.body);
+  masterPlayList as HlsMasterPlaylist;
+  final sortedVariants = masterPlayList.variants
+    ..sort((a, b) => b.format.bitrate!.compareTo(a.format.bitrate!));
+  final highestQualityVariant = sortedVariants.first;
+  return highestQualityVariant.url.toString();
 }
 
 // This one needs more care that other providers...

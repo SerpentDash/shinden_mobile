@@ -65,8 +65,6 @@ class NotificationController {
       if (id != null || fileName != null) {
         NotificationController.killIsolate([id, fileName]);
       }
-    } else if (receivedAction.buttonKeyPressed == 'cancelFfmpeg') {
-      FFmpegKit.cancel(int.parse(receivedAction.payload!["session"]!));
     }
   }
 
