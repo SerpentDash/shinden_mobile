@@ -197,7 +197,7 @@ p,pre{ margin: 1em 1vw; }
 .to-watch .media-item aside {float: unset !important; width: 100%;}
 .to-watch .media-item aside>a {float: unset !important; width: unset !important; text-align: center;}
 .media-item .media-title-cover {background: transparent !important;}
-.rate-stats span {width: 18vh}
+.to-watch .rate-stats span {width: 18vh}
 .to-watch .media-item aside .stats {float: unset !important; display: grid; grid-template-columns: repeat(3, 1fr); justify-content: center; align-items: center; margin-left: 35px;}
 .to-watch .media-item aside .title-description{ float: left; width: 100% !important; height: unset !important; }
 .to-watch .media-item aside .title-description:hover{ height: unset !important; }
