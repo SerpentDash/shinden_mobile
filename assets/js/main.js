@@ -95,7 +95,6 @@
                     parent.insertBefore(spacing, firstFilm);
                 }
 
-                // TODO: CHECK THIS IF ITS ACTUALLY NEEDED
                 // Insert new list
                 [...output.body.children].forEach(el => target.appendChild(el));
                 
@@ -142,8 +141,18 @@
     function seasonTitle() {
         var items = document.getElementsByClassName("img media-title-cover season-tile");
         for (var i = 0; i < items.length; i++)
-        if (!items[i].style.backgroundImage.includes("placeholder"))
-            items[i].style.backgroundImage = items[i].style.backgroundImage.replace("225x350", "genuine");
+            if (!items[i].style.backgroundImage.includes("placeholder"))
+                items[i].style.backgroundImage = items[i].style.backgroundImage.replace("225x350", "genuine");
+    }
+
+    // Wielkosc okladek rekomendacji tytulu
+    function rekomTitle() {
+        var items = document.querySelectorAll('.media-list:not(.ps-container) .media-item > img')
+        for (var i = 0; i < items.length; i++) {
+            console.log(items[i]);
+            if (!items[i].src.includes("placeholder"))
+                items[i].src = items[i].src.replace("100x100", "genuine");
+        }
     }
 
     // Okladka tytulu
@@ -199,6 +208,7 @@
         var items = document.getElementsByClassName("anime-list")[0].getElementsByTagName("article")[0].getElementsByClassName("div-row");
         for(var i=0; i < items.length; i++) {
             var temp = items[i].getElementsByTagName("a")[0];
+            if (temp.style.backgroundImage.includes("placeholder")) temp.style.backgroundImage = temp.style.backgroundImage.replace("100x100", "225x350");
             temp.style.backgroundImage = temp.style.backgroundImage.replace("100x100", "genuine");
         };
     };
@@ -345,6 +355,7 @@
         '.current-season-tiles': reloadOWL,
         '.search-modal': fixSearchModal,
         '.title-cover': titleCover,
+        '.media-list:not(.ps-container) .media-item > img': rekomTitle,
         '.ch-st-list': charactersImages,
         '.person-character-item': castImages,
         '.relation_t2t': relatedSeriesImages,
