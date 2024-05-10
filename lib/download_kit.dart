@@ -276,8 +276,10 @@ void playlistTask(dynamic params) async {
   });
 
   // Get highest quality url from master file
-  final highestQualityUrl =
-      await getHighestQualityUrl(Uri.parse(url), headers: headers);
+
+  final highestQualityUrl = url.contains("master")
+      ? await getHighestQualityUrl(Uri.parse(url), headers: headers)
+      : url;
   if (highestQualityUrl == null) {
     sendPort.send({
       'content': NotificationContent(
@@ -303,10 +305,25 @@ void playlistTask(dynamic params) async {
   final throttler = Throttler(milliseconds: 2000);
 
   try {
+    bool useFullPath = false;
+    String urlPart = url;
+
+    // Check if 'segment' is url or just part of url
+    Uri segmentUri = Uri.parse(segments.first!);
+    if (!segmentUri.hasAbsolutePath) {
+      // Remove last part of base url to use as base for downloading segments
+      List<String> urlSegments = url.split('/');
+      urlSegments.removeLast();
+      urlPart = urlSegments.join('/');
+
+      useFullPath = true;
+    }
+
     // Download each segment and save to file
     for (final segment in segments) {
-      final segmentData =
-          await http.readBytes(Uri.parse(segment!), headers: headers);
+      final segmentData = await http.readBytes(
+          Uri.parse(useFullPath ? "$urlPart/${segment!}" : segment!),
+          headers: headers);
       sink.add(segmentData);
       throttler(
         () => sendPort.send({

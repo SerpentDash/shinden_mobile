@@ -318,8 +318,6 @@ void supervideoPlayer(controller, url, mode) async {
         "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
   };
 
-  //url = url.replaceFirst("tv", "cc");
-
   // Send request for direct link
   Dio dio = Dio();
   final response = await dio.get(
@@ -343,6 +341,7 @@ void supervideoPlayer(controller, url, mode) async {
 
   List<String>? parts = ids?.split("|");
   String id = parts![2] + parts[0];
+  id = id.replaceFirst("sources", "");
 
   RegExp hostRegex = RegExp(r"serversicuro\|([^|]*)");
   final host = hostRegex.firstMatch(body)!.group(1);
