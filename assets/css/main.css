@@ -372,7 +372,7 @@ li img.img.media-title-cover { width: 120px}
 #la ul.wait-to-attention li { display: flex; height: auto; padding: 0 !important; position: relative; margin: 0 !important; max-width: unset !important; min-width: unset !important; border-bottom: none; }
 #la ul.wait-to-attention a.img { width: unset !important;}
 #la ul.wait-to-attention a.img img { height: 100%; width: 100%; filter: brightness(.85); max-width: unset !important; max-height: unset !important; object-fit: unset; border-radius: 10px; aspect-ratio: 225/318 !important;}
-#la ul.wait-to-attention a.title { display: flex; flex-direction: column-reverse; height: 100%; position: absolute; overflow: hidden; bottom: 0; padding: 0 4px 4px 8px; font-size: .9em; text-overflow: ellipsis; text-shadow: 0px 2px 4px black; filter: drop-shadow(0 0 4px black); text-decoration: none; margin: unset !important;}
+#la ul.wait-to-attention a.title { display: flex; flex-direction: column-reverse; height: 100%; width: 100%; position: absolute; overflow: hidden; bottom: 0; padding: 0 4px 4px 8px; font-size: .9em; text-overflow: ellipsis; text-shadow: 0px 2px 4px black; filter: drop-shadow(0 0 4px black); text-decoration: none; margin: unset !important;}
 #la ul.wait-to-attention .episode-list { display: none; }
 #la ul.wait-to-attention .info-line { display: none; }
 #la ul.wait-to-attention .anime_type { display: none; }
