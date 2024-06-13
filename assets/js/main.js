@@ -53,8 +53,8 @@
                 border.classList.add('border-outer');
                 output.getElementsByClassName('api-iframe')[0].prepend(border);
                 
-                // Prepare for sorting and add episode counters
-                const sortContidions = ['Film', 'Specjalny'];
+                // Conditions for sorting
+                const sortContidions = ['TV', 'ONA'];
                 
                 let counter = document.createElement('a');
                 counter.classList.add('counter');
@@ -66,19 +66,18 @@
                     if(item.classList.contains('open-in-full-page')) return;
                     let episode_list = item.getElementsByClassName('episode-list')[0];
 
-                    counterValue = episode_list.firstElementChild.title.match(/\d+/g).length; // count numbers occurrence in string
+                    // Count numbers occurrence in string
+                    counterValue = episode_list.querySelector(".button-with-tip").title.match(/\d+/g).length; 
 
-                    item.dataset.sort = counterValue + (sortContidions.some(el => item.getElementsByClassName('info-line')[0].innerText.includes(el)) ? 10000 : 0);
-                    counter.innerText = counterValue;
-
-                    item.append(counter.cloneNode(true));
+                    // Set 'sort' value to easily separate series from movies
+                    item.dataset.sort = counterValue + (!sortContidions.some(el => item.querySelector('.anime_type').innerText.includes(el)) ? 1000000 : 0);
                     
-                    item.children[0].classList = "";
-                    item.children[0].href = episode_list.children[1].href;
-                    item.children[0].style = `background-image: url(${item.children[0].firstChild.src});`;
-                    item.children[0].firstChild.remove();
+                    // Set counter
+                    counter.innerText = counterValue;
+                    item.append(counter.cloneNode(true));
 
-                    item.children[1].innerText = item.children[1].title;
+                    // Open the newest episode when selecting media_item
+                    item.querySelector('.title').href = item.querySelector('.episode-list > a').href;
                 });
 
                 // Sort list
