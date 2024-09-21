@@ -63,17 +63,14 @@
                 _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'stream', _dropdown.children[1].children[0].innerText);
                 _dropdown.children[1].children[1].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[1].innerText);
 
-                switch (providerName) {
-                    case 'mp4upload': // only download
-                    case 'yourupload':
-                    case 'dood':
-                    case 'mega':
+                /* switch (providerName) {
+                    case 'mega': // only download
                         _dropdown.children[1].children[0].remove();
                         _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[0].innerText);
                         break;
                     default:
                         break;
-                }
+                } */
             } else {
                 let normalBtn = document.createElement('a');
                 normalBtn.innerText = 'Pokaż';

@@ -11,6 +11,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:receive_sharing_intent_plus/receive_sharing_intent_plus.dart';
 
 import 'download_kit.dart';
+import 'video_server.dart';
 
 String css = "";
 List<String> hosts = [];
@@ -44,8 +45,7 @@ void main() async {
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(
-        /* kDebugMode */ true);
+    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode /* true */);
   }
 
   runApp(MaterialApp(
@@ -116,8 +116,7 @@ class MyAppState extends State<MyApp> {
     super.initState();
 
     pullToRefreshController = PullToRefreshController(
-      settings: PullToRefreshSettings(
-          color: Colors.white, backgroundColor: Colors.black),
+      settings: PullToRefreshSettings(color: Colors.white, backgroundColor: Colors.black),
       onRefresh: () async => webViewController?.reload(),
     );
 
@@ -133,6 +132,7 @@ class MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _textIntent.cancel();
+    VideoServer().stop();
     super.dispose();
   }
 
@@ -149,8 +149,7 @@ class MyAppState extends State<MyApp> {
               Expanded(
                 child: InAppWebView(
                   key: webViewKey,
-                  initialUrlRequest:
-                      URLRequest(url: WebUri("https://shinden.pl/")),
+                  initialUrlRequest: URLRequest(url: WebUri("https://shinden.pl")),
                   initialSettings: settings,
                   contextMenu: contextMenu,
                   pullToRefreshController: pullToRefreshController,
@@ -158,8 +157,7 @@ class MyAppState extends State<MyApp> {
                     webViewController = controller;
 
                     // Opening shared url from outside the app while the app is closed
-                    await ReceiveSharingIntentPlus.getInitialText()
-                        .then((String? value) {
+                    await ReceiveSharingIntentPlus.getInitialText().then((String? value) {
                       if (value == null) return;
                       webViewController!.loadUrl(
                         urlRequest: URLRequest(url: WebUri(value)),
@@ -167,29 +165,21 @@ class MyAppState extends State<MyApp> {
                     });
 
                     // Utility
-                    controller.addJavaScriptHandler(
-                        handlerName: 'reload',
-                        callback: (args) =>
-                            pullToRefreshController?.setEnabled(true));
-                    controller.addJavaScriptHandler(
-                        handlerName: 'no_reload',
-                        callback: (args) =>
-                            pullToRefreshController?.setEnabled(false));
+                    controller.addJavaScriptHandler(handlerName: 'reload', callback: (args) => pullToRefreshController?.setEnabled(true));
+                    controller.addJavaScriptHandler(handlerName: 'no_reload', callback: (args) => pullToRefreshController?.setEnabled(false));
 
                     // From players_handler.dart
                     // Add handlers for supported video providers
                     controller.addJavaScriptHandler(
                       handlerName: 'handle_link',
-                      callback: (args) =>
-                          handleLink(controller, args[0], args[1]),
+                      callback: (args) => handleLink(controller, args[0], args[1]),
                     );
                   },
                   onLoadStart: (controller, url) async {
                     pullToRefreshController?.setEnabled(true);
                     tempUrl = url.toString();
 
-                    if (tempUrl.contains("shinden.pl") &&
-                        !tempUrl.contains("shinden.pl/animelist")) {
+                    if (tempUrl.contains("shinden.pl") && !tempUrl.contains("shinden.pl/animelist")) {
                       // ADD CSS
                       await controller.evaluateJavascript(source: """
                         const sheet = new CSSStyleSheet();
@@ -198,14 +188,11 @@ class MyAppState extends State<MyApp> {
                         """);
 
                       // ADD JS
-                      await controller.injectJavascriptFileFromAsset(
-                          assetFilePath: "assets/js/main.js");
+                      await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/main.js");
 
                       // ADD BYPASS JS
-                      if (tempUrl.contains("shinden.pl/episode") ||
-                          tempUrl.contains("shinden.pl/epek")) {
-                        await controller.injectJavascriptFileFromAsset(
-                            assetFilePath: "assets/js/bypass.js");
+                      if (tempUrl.contains("shinden.pl/episode") || tempUrl.contains("shinden.pl/epek")) {
+                        await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/bypass.js");
                       }
                     }
                   },
@@ -233,10 +220,8 @@ class MyAppState extends State<MyApp> {
                   },
                   onReceivedError: (controller, request, error) async {
                     pullToRefreshController?.endRefreshing();
-                    if (error.type.toString() != "UNKNOWN" ||
-                        request.isForMainFrame == true) {
-                      await controller.injectJavascriptFileFromAsset(
-                          assetFilePath: 'assets/js/error.js');
+                    if (error.type.toString() != "UNKNOWN" || request.isForMainFrame == true) {
+                      await controller.injectJavascriptFileFromAsset(assetFilePath: 'assets/js/error.js');
                     }
                   },
                   onProgressChanged: (controller, progress) {
@@ -266,8 +251,7 @@ class MyAppState extends State<MyApp> {
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xff181818),
-          content: const Text('Czy na pewno chcesz wyjść?',
-              style: TextStyle(color: Colors.white)),
+          content: const Text('Czy na pewno chcesz wyjść?', style: TextStyle(color: Colors.white)),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false), // close dialog

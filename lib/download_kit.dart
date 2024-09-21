@@ -3,6 +3,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:isolate';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:http/http.dart' as http;
@@ -23,6 +25,8 @@ import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:open_file_plus/open_file_plus.dart';
 import 'package:android_intent_plus/android_intent.dart';
+
+import 'video_server.dart';
 
 part 'players_handler.dart';
 part 'notification_controller.dart';
@@ -67,9 +71,7 @@ void download(url, fileName, {Map<String, String> headers = const {}}) async {
 
 /// Download and decrypt file from MEGA
 void megaTask(dynamic params) async {
-  final sendPort = params[0]; // will be added by NotificationController
-  int id = params[1]; // will be added by NotificationController
-  String baseUrl = params[2];
+  final [sendPort, id, baseUrl] = params;
 
   String? paramId = extractIdFromUrl(baseUrl);
   String? paramKey = extractKeyFromUrl(baseUrl);
@@ -94,15 +96,11 @@ void megaTask(dynamic params) async {
     keyHex = HEX.encode((base64.decode(addBase64Padding(paramKey))));
   }
 
-  Uint8List iv =
-      Uint8List.fromList(HEX.decode(keyHex.substring(32, 48) + '0' * 16));
+  Uint8List iv = Uint8List.fromList(HEX.decode(keyHex.substring(32, 48) + '0' * 16));
 
-  BigInt key1 = BigInt.parse(keyHex.substring(0, 16), radix: 16) ^
-      BigInt.parse(keyHex.substring(32, 48), radix: 16);
-  BigInt key2 = BigInt.parse(keyHex.substring(16, 32), radix: 16) ^
-      BigInt.parse(keyHex.substring(48, 64), radix: 16);
-  Uint8List key = Uint8List.fromList(HEX.decode(
-      '${key1.toRadixString(16).padLeft(16, '0')}${key2.toRadixString(16).padLeft(16, '0')}'));
+  BigInt key1 = BigInt.parse(keyHex.substring(0, 16), radix: 16) ^ BigInt.parse(keyHex.substring(32, 48), radix: 16);
+  BigInt key2 = BigInt.parse(keyHex.substring(16, 32), radix: 16) ^ BigInt.parse(keyHex.substring(48, 64), radix: 16);
+  Uint8List key = Uint8List.fromList(HEX.decode('${key1.toRadixString(16).padLeft(16, '0')}${key2.toRadixString(16).padLeft(16, '0')}'));
 
   // Get json from API request
   final apiResponse = await http.post(
@@ -138,8 +136,7 @@ void megaTask(dynamic params) async {
     input = base64.decode(addBase64Padding(info));
   }
 
-  final cipher = pc.CBCBlockCipher(pc.AESEngine())
-    ..init(false, pc.ParametersWithIV(pc.KeyParameter(key), Uint8List(16)));
+  final cipher = pc.CBCBlockCipher(pc.AESEngine())..init(false, pc.ParametersWithIV(pc.KeyParameter(key), Uint8List(16)));
 
   Uint8List output = Uint8List(input.length);
 
@@ -168,8 +165,7 @@ void megaTask(dynamic params) async {
                   id: id,
                   channelKey: 'downloader',
                   title: fileName,
-                  body:
-                      "${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB",
+                  body: "${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB",
                   progress: (received / total) * 100,
                   notificationLayout: NotificationLayout.ProgressBar,
                   locked: true,
@@ -228,8 +224,7 @@ void megaTask(dynamic params) async {
             id: id,
             channelKey: 'downloader',
             title: fileName,
-            body:
-                'Decrypting (${((chunkIndex / totalChunks) * 100).toStringAsFixed(2)}%)',
+            body: 'Decrypting (${((chunkIndex / totalChunks) * 100).toStringAsFixed(2)}%)',
             progress: (chunkIndex / totalChunks) * 100,
             notificationLayout: NotificationLayout.ProgressBar,
             locked: true,
@@ -277,9 +272,7 @@ void playlistTask(dynamic params) async {
 
   // Get highest quality url from master file
 
-  final highestQualityUrl = url.contains("master")
-      ? await getHighestQualityUrl(Uri.parse(url), headers: headers)
-      : url;
+  final highestQualityUrl = url.contains("master") ? await getHighestQualityUrl(Uri.parse(url), headers: headers) : url;
   if (highestQualityUrl == null) {
     sendPort.send({
       'content': NotificationContent(
@@ -293,12 +286,10 @@ void playlistTask(dynamic params) async {
   }
 
   final media = await http.get(Uri.parse(highestQualityUrl), headers: headers);
-  final mediaPlaylist = await HlsPlaylistParser.create()
-      .parseString(Uri.parse(highestQualityUrl), media.body);
+  final mediaPlaylist = await HlsPlaylistParser.create().parseString(Uri.parse(highestQualityUrl), media.body);
   mediaPlaylist as HlsMediaPlaylist;
 
-  final segments =
-      mediaPlaylist.segments.map((segment) => segment.url).toList();
+  final segments = mediaPlaylist.segments.map((segment) => segment.url).toList();
 
   final sink = File('$savePath/$title.mp4').openWrite();
 
@@ -321,9 +312,7 @@ void playlistTask(dynamic params) async {
 
     // Download each segment and save to file
     for (final segment in segments) {
-      final segmentData = await http.readBytes(
-          Uri.parse(useFullPath ? "$urlPart/${segment!}" : segment!),
-          headers: headers);
+      final segmentData = await http.readBytes(Uri.parse(useFullPath ? "$urlPart/${segment!}" : segment!), headers: headers);
       sink.add(segmentData);
       throttler(
         () => sendPort.send({
@@ -331,8 +320,7 @@ void playlistTask(dynamic params) async {
               id: id,
               channelKey: 'downloader',
               title: '$title.mp4',
-              body:
-                  "Segment: ${segments.indexOf(segment) + 1} / ${segments.length}",
+              body: "Segment: ${segments.indexOf(segment) + 1} / ${segments.length}",
               progress: ((segments.indexOf(segment) + 1) / segments.length) * 100,
               notificationLayout: NotificationLayout.ProgressBar,
               locked: true,
@@ -371,16 +359,13 @@ void playlistTask(dynamic params) async {
 }
 
 // Sort available links and get the highest quality one
-Future<String?> getHighestQualityUrl(Uri masterUrl,
-    {headers = const {}}) async {
+Future<String?> getHighestQualityUrl(Uri masterUrl, {headers = const {}}) async {
   final master = await http.get(masterUrl, headers: headers);
   if (master.statusCode != 200) return null;
 
-  final masterPlayList =
-      await HlsPlaylistParser.create().parseString(masterUrl, master.body);
+  final masterPlayList = await HlsPlaylistParser.create().parseString(masterUrl, master.body);
   masterPlayList as HlsMasterPlaylist;
-  final sortedVariants = masterPlayList.variants
-    ..sort((a, b) => b.format.bitrate!.compareTo(a.format.bitrate!));
+  final sortedVariants = masterPlayList.variants..sort((a, b) => b.format.bitrate!.compareTo(a.format.bitrate!));
   final highestQualityVariant = sortedVariants.first;
   return highestQualityVariant.url.toString();
 }
@@ -397,8 +382,7 @@ void mp4uploadTask(dynamic params) async {
   // Bypass cert verification...
   dio.httpClientAdapter = IOHttpClientAdapter(
     createHttpClient: () {
-      final HttpClient client =
-          HttpClient(context: SecurityContext(withTrustedRoots: false));
+      final HttpClient client = HttpClient(context: SecurityContext(withTrustedRoots: false));
       client.badCertificateCallback = (cert, host, port) => true;
       return client;
     },
@@ -418,8 +402,7 @@ void mp4uploadTask(dynamic params) async {
                 id: id,
                 channelKey: 'downloader',
                 title: '$title.mp4',
-                body:
-                    "${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB",
+                body: "${received ~/ (1024 * 1024)} MB / ${total ~/ (1024 * 1024)} MB",
                 progress: (received / total) * 100,
                 notificationLayout: NotificationLayout.ProgressBar,
                 locked: true,
@@ -479,23 +462,13 @@ String? extractIdFromUrl(String url) {
 
 String? extractKeyFromUrl(String url) {
   RegExp pattern = RegExp(r'[a-zA-Z0-9_-]{22,}');
-  Match? match = pattern.firstMatch(url.split('#').last) ??
-      pattern.firstMatch(url.split('/').last) ??
-      pattern.firstMatch(url);
+  Match? match = pattern.firstMatch(url.split('#').last) ?? pattern.firstMatch(url.split('/').last) ?? pattern.firstMatch(url);
   return match?.group(0)?.replaceAll('-', '+').replaceAll('_', '/');
 }
 
 String addBase64Padding(String value) {
   int paddingNeeded = 4 - (value.length % 4);
   return value + '=' * paddingNeeded;
-}
-
-// Return time in hh:mm:ss format for ffmpeg tasks
-String formatDuration(double value) {
-  int hh = value ~/ 3600000;
-  int mm = (value % 3600000) ~/ 60000;
-  int ss = ((value % 3600000) % 60000) ~/ 1000;
-  return "${hh.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}:${ss.toString().padLeft(2, '0')}";
 }
 
 Future<void> initializeFileDownloader() async {
@@ -518,8 +491,7 @@ Future<void> initializeFileDownloader() async {
   FileDownloader()
       .configureNotificationForGroup(
         FileDownloader.defaultGroup,
-        running: const TaskNotification('{filename}',
-            '{progress} - {networkSpeed} - {timeRemaining} remaining'),
+        running: const TaskNotification('{filename}', '{progress} - {networkSpeed} - {timeRemaining} remaining'),
         complete: const TaskNotification('{filename}', 'Download complete'),
         error: const TaskNotification('{filename}', 'Download failed'),
         paused: const TaskNotification('{filename}', 'Paused by user'),
@@ -527,11 +499,9 @@ Future<void> initializeFileDownloader() async {
         tapOpensFile: true,
       )
       .configureNotificationForGroup('bunch',
-          running: const TaskNotification(
-              '{numFinished} out of {numTotal}', 'Progress = {progress}'),
+          running: const TaskNotification('{numFinished} out of {numTotal}', 'Progress = {progress}'),
           complete: const TaskNotification("Done!", "Loaded {numTotal} files"),
-          error:
-              const TaskNotification('Error', '{numFailed}/{numTotal} failed'),
+          error: const TaskNotification('Error', '{numFailed}/{numTotal} failed'),
           progressBar: false)
       .configureNotification(
         complete: const TaskNotification('{filename}', 'Download complete'),

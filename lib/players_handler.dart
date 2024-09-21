@@ -35,9 +35,7 @@ void handleLink(controller, url, mode) {
   }
 
   // No match found, show error msg to user
-  controller.evaluateJavascript(
-      source:
-          'alert(`No available handler for this link\nChoose other player.`)');
+  controller.evaluateJavascript(source: 'alert(`No available handler for this link\nChoose other player.`)');
 }
 
 void cdaPlayer(controller, url, mode) async {
@@ -46,28 +44,20 @@ void cdaPlayer(controller, url, mode) async {
 
   String? playerDataJSON;
   try {
-    playerDataJSON =
-        document.querySelector('[player_data]')!.attributes['player_data'];
+    playerDataJSON = document.querySelector('[player_data]')!.attributes['player_data'];
   } catch (err) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
-  final quality = pick(json.decode(playerDataJSON!), "video", "qualities")
-      .asMapOrNull<String, String>()
-      ?.entries
-      .last;
+  final quality = pick(json.decode(playerDataJSON!), "video", "qualities").asMapOrNull<String, String>()?.entries.last;
 
   final id = pick(json.decode(playerDataJSON), "video", "id").asStringOrNull();
   final ts = pick(json.decode(playerDataJSON), "video", "ts").asStringOrNull();
-  final hash2 =
-      pick(json.decode(playerDataJSON), "video", "hash2").asStringOrNull();
-  final title =
-      pick(json.decode(playerDataJSON), "video", "title").asStringOrNull();
+  final hash2 = pick(json.decode(playerDataJSON), "video", "hash2").asStringOrNull();
+  final title = pick(json.decode(playerDataJSON), "video", "title").asStringOrNull();
 
-  var data =
-      '{"jsonrpc":"2.0","method":"videoGetLink","params":["$id","${quality!.value}","$ts","$hash2",{}],"id":1}';
+  var data = '{"jsonrpc":"2.0","method":"videoGetLink","params":["$id","${quality!.value}","$ts","$hash2",{}],"id":1}';
 
   http.Response r = await http.post(
     Uri.parse("https://www.cda.pl/"),
@@ -76,11 +66,9 @@ void cdaPlayer(controller, url, mode) async {
     },
     body: data,
   );
-  final directLink =
-      pick(json.decode(r.body), 'result', 'resp').asStringOrNull().toString();
+  final directLink = pick(json.decode(r.body), 'result', 'resp').asStringOrNull().toString();
 
-  process(controller, directLink, "${Uri.decodeFull(title!)} [${quality.key}]",
-      mode);
+  process(controller, directLink, "${Uri.decodeFull(title!)} [${quality.key}]", mode);
 }
 
 void gdrivePlayer(controller, url, mode) async {
@@ -90,20 +78,16 @@ void gdrivePlayer(controller, url, mode) async {
   final document = parse(response.body);
 
   if (document.getElementsByClassName('errorMessage').isNotEmpty) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
-  final title =
-      document.querySelector('[itemprop=name]')!.attributes['content'] ??
-          "gdrive";
+  final title = document.querySelector('[itemprop=name]')!.attributes['content'] ?? "gdrive";
 
   final regex = RegExp('/file/d/([^/]+)');
   final id = regex.allMatches(uri.path).map((str) => str.group(1)).single;
 
-  final directLink =
-      "https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t";
+  final directLink = "https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t";
   //"${uri.scheme}://${uri.host}/uc?id=$id&confirm=t&export=download";
 
   process(controller, directLink, title, mode);
@@ -117,8 +101,7 @@ void sibnetPlayer(controller, url, mode) async {
   String? urlMatch = urlRegExp.firstMatch(r1.body)?.group(1);
 
   if (urlMatch == null) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
   //log("http://video.sibnet.ru$urlMatch");
@@ -153,8 +136,7 @@ void streamtapePlayer(controller, url, mode) async {
 
   // Video not found
   if (r1 == -1) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -185,8 +167,7 @@ void streamtapePlayer(controller, url, mode) async {
   //log(head.realUri.toString());
 
   // Get title
-  int titleStart =
-      responseBody.indexOf('"showtitle":"') + '"showtitle":"'.length;
+  int titleStart = responseBody.indexOf('"showtitle":"') + '"showtitle":"'.length;
   int titleEnd = responseBody.indexOf('"', titleStart);
 
   String title = responseBody.substring(titleStart, titleEnd);
@@ -195,6 +176,8 @@ void streamtapePlayer(controller, url, mode) async {
 }
 
 void mp4uploadPlayer(controller, url, mode) async {
+  await requestIgnoreBatteryOptimizations();
+
   url = url.toString().replaceAll("embed-", "");
 
   RegExp regex = RegExp(r"/([^/]+)\.html");
@@ -202,8 +185,7 @@ void mp4uploadPlayer(controller, url, mode) async {
 
   var response = await http.post(
     Uri.parse(url),
-    body:
-        "op=download2&id=$mp4Id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
+    body: "op=download2&id=$mp4Id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
     headers: {
       "Referer": url,
       "content-type": "application/x-www-form-urlencoded",
@@ -213,20 +195,38 @@ void mp4uploadPlayer(controller, url, mode) async {
   final directLink = response.headers.entries.elementAt(1).value;
 
   if (directLink == "") {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
   final title = url.split('/').last.split('.').first;
 
-  NotificationController.startIsolate(mp4uploadTask, [directLink, title]);
+  switch (mode) {
+    case 'stream':
+      await VideoServer().start();
 
-  // Won't work without passing headers to external video player app
-  //process(controller, directLink, title, mode);
+      await AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': url}).query}',
+        arguments: {'title': title},
+      ).launch().catchError((error) {
+        ScaffoldMessenger.of(controller).showSnackBar(
+          SnackBar(content: Text('Failed to open video player: $error')),
+        );
+      });
+      break;
+    case 'download':
+      NotificationController.startIsolate(mp4uploadTask, [directLink, title]);
+      break;
+    default:
+      break;
+  }
 }
 
 void doodPlayer(controller, url, mode) async {
+  await requestIgnoreBatteryOptimizations();
+
   var r1 = await http.get(Uri.parse(url));
   final body = r1.body;
 
@@ -239,8 +239,7 @@ void doodPlayer(controller, url, mode) async {
   final watch = watchRegex.firstMatch(body)?.group(0);
 
   if (watch == null) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -250,30 +249,43 @@ void doodPlayer(controller, url, mode) async {
   );
 
   final md5Regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
-  final md5 = md5Regex
-      .allMatches(body)
-      .map((str) => str.group(0))
-      .single
-      ?.replaceAll("'", '');
+  final md5 = md5Regex.allMatches(body).map((str) => str.group(0)).single?.replaceAll("'", '');
   //log("MD5: $md5");
 
   final tokenRegex = RegExp(r'token=([^&]+)');
   final token = tokenRegex.firstMatch(body)!.group(1);
   //log("Token: $token");
 
-  var r3 =
-      await http.get(Uri.parse("https://$host$md5"), headers: {"Referer": url});
+  var r3 = await http.get(Uri.parse("https://$host$md5"), headers: {"Referer": url});
 
   final directLink = "${r3.body}${generateRandomString(token)}";
 
   RegExp titleRegex = RegExp(r'<title>(.*?)</title>');
-  final title =
-      titleRegex.firstMatch(body)?.group(1)!.replaceAll(" - DoodStream", "");
+  final title = titleRegex.firstMatch(body)?.group(1)!.replaceAll(" - DoodStream", "");
 
-  download(directLink, "$title.mp4", headers: {"referer": "$url"});
+  switch (mode) {
+    case 'stream':
+      await VideoServer().start();
 
-  // Won't work without passing headers to external video player app
-  //process(controller, directLink, "test", mode);
+      log("Direct link: $directLink\nReferer: $url");
+
+      await AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': url}).query}',
+        arguments: {'title': title},
+      ).launch().catchError((error) {
+        ScaffoldMessenger.of(controller).showSnackBar(
+          SnackBar(content: Text('Failed to open video player: $error')),
+        );
+      });
+      break;
+    case 'download':
+      download(directLink, "$title.mp4", headers: {"referer": "$url"});
+      break;
+    default:
+      break;
+  }
 }
 
 void dailymotionPlayer(controller, url, mode) async {
@@ -288,8 +300,7 @@ void dailymotionPlayer(controller, url, mode) async {
   Map<String, dynamic> json = jsonDecode(jsonResponse.body);
 
   if (json['error'] != null) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -313,10 +324,7 @@ void dailymotionPlayer(controller, url, mode) async {
 }
 
 void supervideoPlayer(controller, url, mode) async {
-  final headers = {
-    'User-Agent':
-        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
-  };
+  final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
   // Send request for direct link
   Dio dio = Dio();
@@ -329,8 +337,7 @@ void supervideoPlayer(controller, url, mode) async {
   );
 
   if (response.statusCode != 200) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -362,8 +369,7 @@ void supervideoPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      NotificationController.startIsolate(
-          playlistTask, [directLink, title, headers]);
+      NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
       break;
     default:
       break;
@@ -372,8 +378,7 @@ void supervideoPlayer(controller, url, mode) async {
 
 void vkPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent':
-        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
   });
   final body = response.body;
 
@@ -383,17 +388,13 @@ void vkPlayer(controller, url, mode) async {
   for (String key in qualities) {
     if (body.contains(key)) {
       int keyIndex = body.indexOf(key);
-      directLink = body
-          .substring(keyIndex + key.length)
-          .split('"')[2]
-          .replaceAll("\\/", "/");
+      directLink = body.substring(keyIndex + key.length).split('"')[2].replaceAll("\\/", "/");
       break;
     }
   }
 
   if (directLink.isEmpty) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -411,16 +412,11 @@ void vkPlayer(controller, url, mode) async {
 
 void okruPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent':
-        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
   });
   String body = response.body;
 
-  body = body
-      .replaceAll("\\", "")
-      .replaceAll("u0026", "&")
-      .replaceAll("&quot;", '"')
-      .replaceAll("%3B", ";");
+  body = body.replaceAll("\\", "").replaceAll("u0026", "&").replaceAll("&quot;", '"').replaceAll("%3B", ";");
 
   // Find any valid video link (starting from the highest quality)
   String directLink = "";
@@ -439,8 +435,7 @@ void okruPlayer(controller, url, mode) async {
   }
 
   if (directLink.isEmpty) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -457,23 +452,22 @@ void okruPlayer(controller, url, mode) async {
 }
 
 void youruploadPlayer(controller, url, mode) async {
+  await requestIgnoreBatteryOptimizations();
+
   url = url.toString().replaceAll("embed", "watch");
 
   var r1 = await http.get(Uri.parse(url));
   final doc1 = parse(r1.body);
 
-  final title =
-      doc1.querySelector('title')!.innerHtml.replaceFirst("Downloading ", "");
+  final title = doc1.querySelector('title')!.innerHtml.replaceFirst("Downloading ", "");
 
-  if (title == "Error") {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+  if (title == "Error" || title == "Content Restricted") {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
   RegExp regExp = RegExp(r'\/download\?file=\d+');
-  final urlWithoutToken =
-      'https://www.yourupload.com${regExp.firstMatch(r1.body)!.group(0)!}';
+  final urlWithoutToken = 'https://www.yourupload.com${regExp.firstMatch(r1.body)!.group(0)!}';
 
   // Trigger download (without token)
   var r2 = await http.get(
@@ -483,22 +477,35 @@ void youruploadPlayer(controller, url, mode) async {
 
   // Get download link with token
   final doc2 = parse(r2.body);
-  final directLink =
-      'https://www.yourupload.com${doc2.querySelector('[data-url]')!.attributes['data-url']}';
+  final directLink = 'https://www.yourupload.com${doc2.querySelector('[data-url]')!.attributes['data-url']}';
 
   //log("Title: $title, Target: $directLink");
 
-  download(directLink, title, headers: {"referer": urlWithoutToken});
+  switch (mode) {
+    case 'stream':
+      await VideoServer().start();
 
-  // Won't work without passing headers to external video player app
-  //process(controller, response2.realUri.toString(), "title", mode);
+      await AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': urlWithoutToken}).query}',
+        arguments: {'title': title},
+      ).launch().catchError((error) {
+        ScaffoldMessenger.of(controller).showSnackBar(
+          SnackBar(content: Text('Failed to open video player: $error')),
+        );
+      });
+      break;
+    case 'download':
+      download(directLink, title, headers: {"referer": urlWithoutToken});
+      break;
+    default:
+      break;
+  }
 }
 
 void aparatPlayer(controller, url, mode) async {
-  final headers = {
-    'User-Agent':
-        "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
-  };
+  final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
   var response = await http.get(Uri.parse(url), headers: headers);
 
@@ -509,8 +516,7 @@ void aparatPlayer(controller, url, mode) async {
   var directLink = regExp.firstMatch(body)?.group(1);
 
   if (directLink == null) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -527,8 +533,7 @@ void aparatPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      NotificationController.startIsolate(
-          playlistTask, [directLink, title, headers]);
+      NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
       break;
     default:
       break;
@@ -538,10 +543,7 @@ void aparatPlayer(controller, url, mode) async {
 void defaultPlayer(controller, url, mode) async {
   // Add user agent to be able to open url in external video player
   final Map<String, String> headers = mode == "stream"
-      ? {
-          'User-Agent':
-              "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
-        }
+      ? {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"}
       : const {};
 
   var response = await http.get(Uri.parse(url), headers: headers);
@@ -553,8 +555,7 @@ void defaultPlayer(controller, url, mode) async {
   String obfuscatedUrl = "https://${match?.group(1) ?? "null"}";
 
   if (obfuscatedUrl.contains("null")) {
-    controller.evaluateJavascript(
-        source: 'alert(`Video does not exist!\nChoose other player.`)');
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
     return;
   }
 
@@ -608,8 +609,7 @@ void defaultPlayer(controller, url, mode) async {
       ).launch();
       break;
     case 'download':
-      NotificationController.startIsolate(
-          playlistTask, [directLink, title, headers]);
+      NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
       break;
     default:
       break;
@@ -617,14 +617,95 @@ void defaultPlayer(controller, url, mode) async {
 }
 
 void megaPlayer(controller, url, mode) async {
-  NotificationController.startIsolate(megaTask, [url]);
+  final status = await Permission.ignoreBatteryOptimizations.request();
+  if (status.isGranted) {
+    final packageName = Platform.resolvedExecutable.split('/').last.split('-')[0];
+    final intent = AndroidIntent(
+      action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+      data: 'package:$packageName',
+    );
+    await intent.launch();
+  }
+
+  switch (mode) {
+    case 'stream':
+      String? paramId = extractIdFromUrl(url);
+      String? paramKey = extractKeyFromUrl(url);
+
+      // Prepare Key and IV
+      String keyHex;
+      try {
+        keyHex = HEX.encode((base64.decode(paramKey!)));
+      } on Exception catch (_) {
+        keyHex = HEX.encode((base64.decode(addBase64Padding(paramKey!))));
+      }
+
+      Uint8List iv = Uint8List.fromList(HEX.decode(keyHex.substring(32, 48) + '0' * 16));
+
+      BigInt key1 = BigInt.parse(keyHex.substring(0, 16), radix: 16) ^ BigInt.parse(keyHex.substring(32, 48), radix: 16);
+      BigInt key2 = BigInt.parse(keyHex.substring(16, 32), radix: 16) ^ BigInt.parse(keyHex.substring(48, 64), radix: 16);
+      Uint8List key = Uint8List.fromList(HEX.decode('${key1.toRadixString(16).padLeft(16, '0')}${key2.toRadixString(16).padLeft(16, '0')}'));
+
+      // Get json from API request
+      final apiResponse = await http.post(
+        Uri.parse('https://eu.api.mega.co.nz/cs'),
+        body: jsonEncode([
+          {"a": "g", "g": 1, "p": paramId}
+        ]),
+      );
+
+      // Parse json
+      final jsonResponse = jsonDecode(apiResponse.body);
+
+      String fileUrl = jsonResponse[0]['g'];
+
+      String info = jsonResponse[0]['at'].replaceAll('-', '+').replaceAll('_', '/');
+
+      // Decrypt info variable to get file name
+      Uint8List input;
+      try {
+        input = base64.decode(info);
+      } on Exception catch (_) {
+        input = base64.decode(addBase64Padding(info));
+      }
+
+      final cipher = pc.CBCBlockCipher(pc.AESEngine())..init(false, pc.ParametersWithIV(pc.KeyParameter(key), Uint8List(16)));
+
+      Uint8List output = Uint8List(input.length);
+
+      var offset = 0;
+      while (offset < input.length) {
+        offset += cipher.processBlock(input, offset, output, offset);
+      }
+
+      RegExp pattern = RegExp(r'"n":"(.*?)"');
+      String fileName = pattern.firstMatch(utf8.decode(output))!.group(1)!;
+
+      await VideoServer().start();
+
+      await AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: 'http://localhost:8069/mega?${Uri(queryParameters: {'url': fileUrl, 'key': base64UrlEncode(key), 'iv': base64UrlEncode(iv)}).query}',
+        arguments: {'title': fileName},
+      ).launch().catchError((error) {
+        ScaffoldMessenger.of(controller).showSnackBar(
+          SnackBar(content: Text('Failed to open video player: $error')),
+        );
+      });
+      break;
+    case 'download':
+      NotificationController.startIsolate(megaTask, [url]);
+      break;
+    default:
+      break;
+  }
 }
 
 //Helper function for dood provider
 String generateRandomString(token) {
   var result = '';
-  var characters =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   var charLength = characters.length;
   var random = Random();
 
@@ -633,4 +714,16 @@ String generateRandomString(token) {
   }
 
   return '$result?token=$token&expiry=${DateTime.now().millisecondsSinceEpoch}';
+}
+
+Future<void> requestIgnoreBatteryOptimizations() async {
+  final status = await Permission.ignoreBatteryOptimizations.request();
+  if (status.isGranted) {
+    final packageName = Platform.resolvedExecutable.split('/').last.split('-')[0];
+    final intent = AndroidIntent(
+      action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+      data: 'package:$packageName',
+    );
+    await intent.launch();
+  }
 }

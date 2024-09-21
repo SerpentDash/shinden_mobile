@@ -23,4 +23,15 @@ plugins {
     id "org.jetbrains.kotlin.android" version "1.9.20" apply false
 }
 
-include ":app"
+include ":app", ":flutter_inappwebview_android"
+
+// Until R8 is fixed, we need to disable minification for the flutter_inappwebview_android plugin
+gradle.beforeProject { project ->
+    if (project.name == "flutter_inappwebview_android") {
+        project.afterEvaluate {
+            if (project.hasProperty("android")) {
+                project.android.buildTypes.release.minifyEnabled = false
+            }
+        }
+    }
+}

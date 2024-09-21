@@ -53,6 +53,10 @@ android {
             applicationIdSuffix ".debug"
             manifestPlaceholders = [applicationLabel: "Shinden Debug"]
         }
+        profile {
+            applicationIdSuffix ".debug"
+            manifestPlaceholders = [applicationLabel: "Shinden Debug"]
+        }
         release {
             manifestPlaceholders = [applicationLabel: "Shinden"]
             // TODO: Add your own signing config for the release build.
