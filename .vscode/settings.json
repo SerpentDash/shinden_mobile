@@ -1,0 +1,9 @@
+{
+    "[dart]": {
+        "editor.rulers": [
+            150
+        ],
+    },
+    "dart.devToolsBrowser": "default",
+    "dart.lineLength": 150,
+}
