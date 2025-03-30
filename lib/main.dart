@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'package:receive_sharing_intent_plus/receive_sharing_intent_plus.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'download_kit.dart';
 import 'video_server.dart';
@@ -78,6 +78,8 @@ class MyAppState extends State<MyApp> {
     verticalScrollBarEnabled: false,
     horizontalScrollBarEnabled: false,
     supportZoom: false,
+    useOnRenderProcessGone: true,
+    useShouldInterceptFetchRequest: true,
   );
 
   PullToRefreshController? pullToRefreshController;
@@ -121,10 +123,12 @@ class MyAppState extends State<MyApp> {
     );
 
     // Opening shared url from outside the app while the app is in the memory
-    _textIntent = ReceiveSharingIntentPlus.getTextStream().listen(
-      (String value) {
-        if (!value.contains("shinden.pl")) return;
-        webViewController!.loadUrl(urlRequest: URLRequest(url: WebUri(value)));
+    _textIntent = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> value) {
+        if (value.isEmpty) return;
+        String sharedValue = value.first.path;
+        if (!sharedValue.contains("shinden.pl")) return;
+        webViewController!.loadUrl(urlRequest: URLRequest(url: WebUri(sharedValue)));
       },
     );
   }
@@ -157,10 +161,12 @@ class MyAppState extends State<MyApp> {
                     webViewController = controller;
 
                     // Opening shared url from outside the app while the app is closed
-                    await ReceiveSharingIntentPlus.getInitialText().then((String? value) {
-                      if (value == null) return;
+                    await ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+                      if (value.isEmpty) return;
+                      String sharedValue = value.first.path;
+                      if (!sharedValue.contains("shinden.pl")) return;
                       webViewController!.loadUrl(
-                        urlRequest: URLRequest(url: WebUri(value)),
+                        urlRequest: URLRequest(url: WebUri(sharedValue)),
                       );
                     });
 
@@ -181,35 +187,42 @@ class MyAppState extends State<MyApp> {
 
                     if (tempUrl.contains("shinden.pl") && !tempUrl.contains("shinden.pl/animelist")) {
                       // ADD CSS
-                      await controller.evaluateJavascript(source: """
-                        const sheet = new CSSStyleSheet();
-                        sheet.replaceSync(window.atob('$css'));
-                        document.adoptedStyleSheets = [sheet]; 
-                        """);
+                      Future.microtask(() async {
+                        await controller.evaluateJavascript(source: """
+                          const sheet = new CSSStyleSheet();
+                          sheet.replaceSync(window.atob('$css'));
+                          document.adoptedStyleSheets = [sheet];
+                          """);
+                      });
 
                       // ADD JS
-                      await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/main.js");
+                      Future.microtask(() async {
+                        await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/main.js");
 
-                      // ADD BYPASS JS
-                      if (tempUrl.contains("shinden.pl/episode") || tempUrl.contains("shinden.pl/epek")) {
-                        await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/bypass.js");
-                      }
+                        // ADD BYPASS JS
+                        if (tempUrl.contains("shinden.pl/episode") || tempUrl.contains("shinden.pl/epek")) {
+                          await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/bypass.js");
+                        }
+                      });
                     }
                   },
                   shouldInterceptRequest: (controller, request) async {
                     tempRequest = request.url.toString();
 
+                    // Skip intercept for same origin requests
+                    if (tempRequest.contains("shinden.pl")) {
+                      return null;
+                    }
+
                     // White list
                     if (!urlWhiteList.any((el) => tempRequest.contains(el))) {
-                      NavigationActionPolicy.CANCEL;
-                      return WebResourceResponse();
+                      return WebResourceResponse(data: Uint8List(0));
                     }
 
                     // Adblock
                     for (var i = 0; i < hosts.length; i++) {
                       if (tempRequest.contains(hosts.elementAt(i))) {
-                        NavigationActionPolicy.CANCEL;
-                        return WebResourceResponse();
+                        return WebResourceResponse(data: Uint8List(0));
                       }
                     }
 

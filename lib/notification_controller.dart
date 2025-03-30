@@ -40,8 +40,7 @@ class NotificationController {
     );
   }
 
-  static void startIsolate(
-      void Function(dynamic) entryPoint, List<dynamic> args) async {
+  static void startIsolate(void Function(dynamic) entryPoint, List<dynamic> args) async {
     await initialize();
 
     int isolateId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -55,7 +54,7 @@ class NotificationController {
   @pragma('vm:entry-point')
   static Future<void> onActionReceived(ReceivedAction receivedAction) async {
     if (receivedAction.body!.contains("Download completed.")) {
-      OpenFile.open("$savePath/${receivedAction.title}", type: "video/*");
+      OpenFileSafePlus.open("$savePath/${receivedAction.title}", type: "video/*");
       return;
     }
 

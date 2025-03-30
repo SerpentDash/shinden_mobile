@@ -23,7 +23,7 @@ import 'package:flutter_hls_parser/flutter_hls_parser.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:open_file_plus/open_file_plus.dart';
+import 'package:open_file_safe_plus/open_file_safe_plus.dart';
 import 'package:android_intent_plus/android_intent.dart';
 
 import 'video_server.dart';

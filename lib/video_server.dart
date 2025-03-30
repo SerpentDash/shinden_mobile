@@ -72,10 +72,13 @@ class VideoServerTaskHandler extends TaskHandler {
   void onRepeatEvent(DateTime timestamp) {}
 
   @override
-  void onDestroy(DateTime timestamp) {}
+  Future<void> onDestroy(DateTime timestamp) async {
+    // Close server if needed
+    await _server?.close();
+  }
 
   @override
-  Future<void> onStart(DateTime timestamp) async {
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     _server = await HttpServer.bind('localhost', 8069);
     log('Server started on port 8069');
 
