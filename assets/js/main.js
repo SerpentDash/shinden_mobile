@@ -327,7 +327,7 @@
     function reloadOWL() {
         window.onload = () => {
             $('.current-season-tiles').trigger("destroy.owl.carousel");
-            $('.owl-carousel').owlCarousel({ items: 3, loop: true, autoplay: true});
+            $('.owl-carousel').owlCarousel({ items: 4, loop: true, autoplay: true});
         }
     }
 

@@ -33,7 +33,7 @@
 .twitter-typeahead input {color: white;}
 .search-section .search-genres-desc i {color: white;}
 .search-section button { background: #575757 !important;}
-#main-search-select {color: white;}
+#main-search-select {color: white; padding: 12px !important;}
 #main-search {width: unset !important; margin-top: 0 !important;}
 .fancy-bar {background-color: unset !important;}
 .top-bar--nav-user {background: #424242 !important; right: 0 !important; border-radius: 10px; top: 41px !important; }
@@ -189,6 +189,7 @@ p,pre{ margin: 1em 1vw; }
 .my-row { height: unset !important; max-height: unset !important; }
 .row.limit-height {height: unset !important;}
 .col-sm-4.col-xs-12.box {display: none;}
+.col-xs-12.col-ms-8 {display: none;}
 .col-sm-2 { height: 32vmin; width: 20%; position: relative; margin-left: 10px; }
 .col-sm-10 { width: 77%; }
 .title-box-list h3>figure { position: unset !important; margin-right: 10px; }
@@ -207,7 +208,7 @@ p,pre{ margin: 1em 1vw; }
 .season-tile .tile-title { line-height: 0; font-size: 2.5vw; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: unset !important}
 .season-tile .tile-title span { line-height: 15px !important}
 .current-season-tiles { height: 32vw; width: 100%; }
-.current-season-tiles .owl-stage-outer { width: 73vw; margin: auto; position: absolute; top: 0; right: 0; left: 0; bottom: 0; z-index: 5; }
+.current-season-tiles .owl-stage-outer { width: 100vw; margin: auto; position: absolute; top: 0; right: 0; left: 0; bottom: 0; z-index: 5; }
 .current-season-tiles .owl-nav { position: absolute; height: 100%; width: 100%; }
 .current-season-tiles .owl-prev { font-size: 2vw; width: 3vw; height: 3vw; display: flex; align-items: center; justify-content: center; left: 5%; }
 .current-season-tiles .owl-next { font-size: 2vw; width: 3vw; height: 3vw; display: flex; align-items: center; justify-content: center; right: 5%;}
@@ -358,9 +359,9 @@ h2.box-title {padding-left: 10px;}
 .top-bar--user button {margin-left: 10px; margin-top: 0px; line-height: 1; height: 31px !important}
 .top-bar--user button.active{ background:  rgb(66, 66, 66) !important; border-radius: 25%; }
 .top-bar--user .mobile-visible { display: inline-flex !important; overflow: hidden; max-width: 30vw;}
-.btnWL i {font-size: 1.6em;}
+.btnWL i {font-size: 1.6em; width: 2rem;}
 #la { overflow: auto; position: fixed; background-color: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none; transform: unset !important;}
-#la.show {opacity: 1;}
+#la.show {opacity: 1; z-index: 9999;}
 #la .container, #la .contantainer { background-color: unset; padding: 7px}
 #la .media-item .media-title-cover { background: unset}
 li img.img.media-title-cover { width: 120px}
