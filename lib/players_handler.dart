@@ -5,7 +5,7 @@ part of 'download_kit.dart';
 //
 
 // Supported host names with their handlers
-const List<MapEntry<List<String>, Function>> handlers = [
+final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['cda'], cdaPlayer),
   MapEntry(['drive.google'], gdrivePlayer),
   MapEntry(['sibnet'], sibnetPlayer),
@@ -50,7 +50,10 @@ void cdaPlayer(controller, url, mode) async {
     return;
   }
 
-  final quality = pick(json.decode(playerDataJSON!), "video", "qualities").asMapOrNull<String, String>()?.entries.last;
+  final qualities = pick(json.decode(playerDataJSON!), "video", "qualities").asMapOrNull<String, String>()?.entries.toList();
+  final quality = (qualities != null && qualities.isNotEmpty)
+      ? (qualities.last.value == 'auto' && qualities.length > 1 ? qualities[qualities.length - 2] : qualities.last)
+      : null;
 
   final id = pick(json.decode(playerDataJSON), "video", "id").asStringOrNull();
   final ts = pick(json.decode(playerDataJSON), "video", "ts").asStringOrNull();
