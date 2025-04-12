@@ -20,6 +20,11 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['wolfstream'], aparatPlayer),
   MapEntry(['filemoon'], defaultPlayer), // 'streamvid' there are more hosts...
   MapEntry(['mega'], megaPlayer),
+  MapEntry(['lycoris'], lycorisPlayer),
+  MapEntry(['pixeldrain'], pixeldrainPlayer),
+  //MapEntry(['lulu'], luluPlayer), // not yet
+  MapEntry(['rumble'], rumblePlayer),
+  MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
 ];
 
 void handleLink(controller, url, mode) async {
@@ -608,11 +613,11 @@ void defaultPlayer(controller, url, mode) async {
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
 /*   // Get highest quality link
-  var master = await http.get(Uri.parse(directLink), headers: headers);
-  RegExp masterRegex = RegExp(r'https?://[^\s]+index[^\s]*');
+	var master = await http.get(Uri.parse(directLink), headers: headers);
+	RegExp masterRegex = RegExp(r'https?://[^\s]+index[^\s]*');
 
-  directLink = masterRegex.allMatches(master.body).last.group(0)!;
-  //log(directLink); */
+	directLink = masterRegex.allMatches(master.body).last.group(0)!;
+	//log(directLink); */
 
   switch (mode) {
     case 'stream':
@@ -715,6 +720,265 @@ void megaPlayer(controller, url, mode) async {
     default:
       break;
   }
+}
+
+void lycorisPlayer(controller, url, mode) async {
+  var response = await http.get(Uri.parse(url));
+  final body = response.body;
+
+  // Extract url to pass to API
+  RegExp sourceRegex = RegExp(r'burstSource\\":\\"([^\\]+)');
+  final burstSource = sourceRegex.firstMatch(body)?.group(1);
+
+  if (burstSource == null) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  RegExp numberRegex = RegExp(r'\\"number\\":(\d+)');
+  RegExp titleRegex = RegExp(r'\\"title\\":\\"([^\\]+)');
+  final number = numberRegex.firstMatch(body)?.group(1);
+  final episodeTitle = titleRegex.firstMatch(body)?.group(1);
+
+  // Get download URL from API
+  var apiResponse = await http.get(
+    Uri.parse('https://www.lycoris.cafe/api/watch/getBurstLink?link=$burstSource'),
+  );
+
+  Map<String, dynamic> json = jsonDecode(apiResponse.body);
+  final directLink = json['downloadUrl'];
+  final title = "$number. $episodeTitle";
+
+  process(controller, directLink, title, mode);
+}
+
+void pixeldrainPlayer(controller, url, mode) async {
+  // Extract file ID from URL
+  RegExp regExp = RegExp(r'/u/([^/?]+)');
+  final id = regExp.firstMatch(url)!.group(1);
+
+  if (id == null) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Create direct link and get title from its headers
+  final directLink = "https://pixeldrain.com/api/file/$id?download";
+  Dio dio = Dio();
+  final response = await dio.head(
+    directLink,
+    options: Options(validateStatus: (status) => true),
+  );
+
+  if (response.statusCode != 200) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  final disposition = response.headers.value('content-disposition');
+
+  RegExp filenameRegex = RegExp(r'filename="(.*?)"');
+  final match = filenameRegex.firstMatch(disposition ?? '');
+
+  final title = match?.group(1) ?? id;
+
+  process(controller, directLink, title, mode);
+}
+
+// [WIP] Still needs some changes
+void luluPlayer(controller, url, mode) async {
+  final Map<String, String> headers = {
+    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+    'Referer': url
+  };
+
+  var response = await http.get(Uri.parse(url), headers: headers);
+  final body = response.body;
+
+  // Make the dl url
+  RegExp dlRegex = RegExp(r'dl\?op=view&file_code=([^&]+)&hash=([^&"]+)');
+  final dlMatch = dlRegex.firstMatch(body);
+  if (dlMatch == null) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Returns int (counter of requests for this file?)
+  final dlUrl = "https://lulu.st/dl?op=view&file_code=${dlMatch.group(1)}&hash=${dlMatch.group(2)}&embed=1&adb=0";
+  await http.get(Uri.parse(dlUrl), headers: headers);
+
+  // Get playlist URL from html
+  RegExp regExp = RegExp(r'sources:\s*\[\{file:"([^"]+)"');
+  final match = regExp.firstMatch(body);
+  if (match == null) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  // Get master playlist URL
+  String masterUrl = match.group(1)!.replaceAll('master', 'index');
+  // masterUrl = masterUrl.replaceAll('master', 'index');
+
+  // Make a request (playlist url) to ensure cookies are set
+  await http.get(Uri.parse(masterUrl), headers: headers);
+
+  // Extract title from URL path (for testing)
+  Uri u = Uri.parse(url);
+  final title = u.pathSegments[u.pathSegments.length - 1];
+
+  log("Title: $title, Target: $masterUrl");
+
+  switch (mode) {
+    case 'stream':
+      // Playlist url needs headers to respond data...
+      await VideoServer().start();
+
+      // Use the proxy server to handle the streaming with proper headers
+      await AndroidIntent(
+        action: 'action_view',
+        type: "video/*",
+        data: 'http://localhost:8069?${Uri(queryParameters: {'url': masterUrl, 'referer': url}).query}',
+        arguments: {'title': title},
+      ).launch().catchError((error) {
+        log("Error launching video player: $error");
+      });
+      break;
+    case 'download':
+      // Output file is corupted...
+      NotificationController.startIsolate(playlistTask, [masterUrl, title, headers]);
+      break;
+    default:
+      break;
+  }
+}
+
+void rumblePlayer(controller, url, mode) async {
+  final response = await http.get(
+    Uri.parse(url),
+    headers: {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
+  );
+
+  if (response.statusCode != 200) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  final html = response.body;
+
+  // Extract title
+  RegExp titleRegex = RegExp(r'"title":"([^"]+)"');
+  var title = titleRegex.firstMatch(html)?.group(1) ?? 'Rumble Video';
+
+  // Get URL for highest quality
+  // If it doesn't exist, it will fall back to lower qualities or default
+  final qualityOrder = ["1080", "720", "480", "360"];
+  String? directLink;
+
+  for (final quality in qualityOrder) {
+    final match = RegExp('"$quality":\\s*{.*?"url":\\s*"(https:\\\\/\\\\/[^"]+\\.mp4)"', dotAll: true).firstMatch(html);
+    if (match != null) {
+      directLink = match.group(1);
+      title += ' [${quality}p]';
+      break;
+    }
+  }
+
+  // If no quality-specific URL found, try the default URL
+  if (directLink == null) {
+    final matchDefault = RegExp(r'"url":"(https:\\\/\\\/[^"]+\.mp4)"').firstMatch(html);
+    directLink = matchDefault?.group(1);
+  }
+
+  if (directLink == null) {
+    controller.evaluateJavascript(source: 'alert(`Could not extract video URL from Rumble page`)');
+    return;
+  }
+
+  // Decode the URL (handle escape sequences)
+  directLink = directLink.replaceAll(r'\/', '/');
+
+  process(controller, directLink, title, mode);
+}
+
+void streamwishPlayer(controller, url, mode) async {
+  try {
+    final headers = {
+      'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    };
+
+    // Fetch HTML
+    var response = await http.get(Uri.parse(url), headers: headers);
+
+    if (response.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+      return;
+    }
+
+    // Extract title
+    final document = parse(response.body);
+    String title = document.querySelector('title')?.text ?? 'StreamWish Video';
+    title = title.replaceAll(' - StreamWish', '').replaceAll(' - Stream', '');
+
+    // Extract JS
+    RegExp scriptRegex = RegExp(r"<script type='text/javascript'>(eval\(function\(p,a,c,k,e,d\).*?)</script>", dotAll: true);
+    RegExp partsRegex = RegExp(r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'.split\('\|'\)\)\)", dotAll: true);
+
+    final scriptMatch = scriptRegex.firstMatch(response.body);
+    if (scriptMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract video code`)');
+      return;
+    }
+
+    final partsMatch = partsRegex.firstMatch(scriptMatch.group(1)!);
+    if (partsMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract video code parameters`)');
+      return;
+    }
+
+    // Unpack JS
+    final unpacked = _unpack(partsMatch.group(1)!, int.parse(partsMatch.group(2)!), int.parse(partsMatch.group(3)!), partsMatch.group(4)!.split('|'));
+
+    // Extract video URL
+    RegExp linksRegex = RegExp(r'"hls\d*"\s*:\s*"(https?://[^"]+\.m3u8[^"]*)"', dotAll: true);
+    final match = linksRegex.firstMatch(unpacked);
+
+    if (match == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+
+    // Process the extracted video URL
+    process(controller, match.group(1)!, title, mode);
+  } catch (e) {
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+/// [streamwishPlayer] Core unpacker algorithm
+String _unpack(String p, int a, int c, List<String> k) {
+  int counter = c;
+  while (counter > 0) {
+    counter--;
+    if (k[counter].isNotEmpty) {
+      final regex = RegExp('\\b${_baseEncode(counter, a)}\\b', caseSensitive: false);
+      p = p.replaceAll(regex, k[counter]);
+    }
+  }
+  return p;
+}
+
+/// [streamwishPlayer] Mimics toString(base) method in JS for base encoding
+String _baseEncode(int num, int base) {
+  if (num < 0) {
+    return '-${_baseEncode(-num, base)}';
+  }
+
+  const String digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+  if (num < base) {
+    return digits[num];
+  }
+
+  return _baseEncode(num ~/ base, base) + digits[num % base];
 }
 
 //Helper function for dood provider

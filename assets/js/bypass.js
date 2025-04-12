@@ -32,6 +32,11 @@
         'aparat',
         'default',
         'mega', // maybe will check in future
+        'lycoriscafe',
+        'pixeldrain',
+        //'lulustream', // not yet
+        'rumble',
+        'streamwish'
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
