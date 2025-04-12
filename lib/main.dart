@@ -10,6 +10,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import 'package:android_intent_plus/android_intent.dart';
+
 import 'download_kit.dart';
 import 'video_server.dart';
 
@@ -179,6 +181,17 @@ class MyAppState extends State<MyApp> {
                     controller.addJavaScriptHandler(
                       handlerName: 'handle_link',
                       callback: (args) => handleLink(controller, args[0], args[1]),
+                    );
+
+                    // Add handler for opening in system browser
+                    controller.addJavaScriptHandler(
+                      handlerName: 'open_browser',
+                      callback: (args) async {
+                        await AndroidIntent(
+                          action: 'action_view',
+                          data: args[0],
+                        ).launch();
+                      },
                     );
                   },
                   onLoadStart: (controller, url) async {

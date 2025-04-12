@@ -31,7 +31,7 @@
         'yourupload',
         'aparat',
         'default',
-        'mega',
+        'mega', // maybe will check in future
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {
@@ -44,7 +44,7 @@
         dropdown.classList.add('dropdown');
         dropdown.innerHTML = `
             <a class="button">Wybierz<i class='fa fa-chevron-down'></i></a><div class="dropdown-content">
-            <a class='button'>Stream</a><a class='button'>Pobierz</a></div>`;
+            <a class='button'>Stream</a><a class='button'>Pobierz</a><a class='button'>Pokaż</a></div>`;
 
         // clone template and assign correct values / events
         for (let i = 1; i < elements.length; i++) {
@@ -55,6 +55,7 @@
             let providerName = elements[i].parentElement.firstElementChild.innerText.toLowerCase();
 
             if (providers.some(provider => providerName == provider)) {
+                // For supported providers, show dropdown with all options
                 let _dropdown = dropdown.cloneNode(true);
                 clone.after(_dropdown);
                 clone.remove();
@@ -62,16 +63,9 @@
                 _dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
                 _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'stream', _dropdown.children[1].children[0].innerText);
                 _dropdown.children[1].children[1].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[1].innerText);
-
-                /* switch (providerName) {
-                    case 'mega': // only download
-                        _dropdown.children[1].children[0].remove();
-                        _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[0].innerText);
-                        break;
-                    default:
-                        break;
-                } */
+                _dropdown.children[1].children[2].onclick = () => handleClick(i, data, '', _dropdown.children[1].children[2].innerText);
             } else {
+                // For unsupported providers, show default 'Pokaż' button (will open external browser app)
                 let normalBtn = document.createElement('a');
                 normalBtn.innerText = 'Pokaż';
                 normalBtn.classList.add('button');
@@ -132,16 +126,17 @@
         link = link.src || link.href;
         console.log(link);
 
-        // Pass url to be handled in flutter side
-        if (current_mode != '') {
+        // Handle link based on mode - empty mode opens system browser
+        if (current_mode === '') {
+            window.flutter_inappwebview.callHandler('open_browser', link);
+        } else {
             window.flutter_inappwebview.callHandler('handle_link', link, current_mode);
-            setTimeout(() => {
-                selectButton(null);
-                container.innerHTML = "";
-            }, 1000);
-            return;
         }
-
-        location.assign(link);
+        
+        // Clean up UI
+        setTimeout(() => {
+            selectButton(null);
+            container.innerHTML = "";
+        }, 1000);
     }
 })();

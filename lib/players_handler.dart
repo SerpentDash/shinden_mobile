@@ -22,7 +22,16 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['mega'], megaPlayer),
 ];
 
-void handleLink(controller, url, mode) {
+void handleLink(controller, url, mode) async {
+  // Handle direct browser opening
+  if (mode == 'direct') {
+    await AndroidIntent(
+      action: 'action_view',
+      data: url,
+    ).launch();
+    return;
+  }
+
   final link = Uri.parse(url);
   //log("Link: ${link.host}");
 
@@ -34,8 +43,11 @@ void handleLink(controller, url, mode) {
     }
   }
 
-  // No match found, show error msg to user
-  controller.evaluateJavascript(source: 'alert(`No available handler for this link\nChoose other player.`)');
+  // No match found, open in browser
+  AndroidIntent(
+    action: 'action_view',
+    data: url,
+  ).launch();
 }
 
 void cdaPlayer(controller, url, mode) async {
