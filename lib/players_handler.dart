@@ -726,29 +726,69 @@ void lycorisPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
   final body = response.body;
 
-  // Extract url to pass to API
-  RegExp sourceRegex = RegExp(r'burstSource\\":\\"([^\\]+)');
-  final burstSource = sourceRegex.firstMatch(body)?.group(1);
+  final episodeId = RegExp(r'\\\"id\\\":(\d+)').firstMatch(body)?.group(1);
 
-  if (burstSource == null) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+  if (episodeId == null) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist or is unavailable!`)');
     return;
   }
 
-  RegExp numberRegex = RegExp(r'\\"number\\":(\d+)');
-  RegExp titleRegex = RegExp(r'\\"title\\":\\"([^\\]+)');
-  final number = numberRegex.firstMatch(body)?.group(1);
-  final episodeTitle = titleRegex.firstMatch(body)?.group(1);
-
-  // Get download URL from API
-  var apiResponse = await http.get(
-    Uri.parse('https://www.lycoris.cafe/api/watch/getBurstLink?link=$burstSource'),
-  );
-
-  Map<String, dynamic> json = jsonDecode(apiResponse.body);
-  final directLink = json['downloadUrl'];
+  // Extract episode number and title
+  final number = RegExp(r'\\"number\\":(\d+)').firstMatch(body)?.group(1) ?? '';
+  final episodeTitle = RegExp(r'\\"title\\":\\"([^\\]+)').firstMatch(body)?.group(1) ?? 'Unknown';
   final title = "$number. $episodeTitle";
 
+  // Try burst source method first
+  final burstSource = RegExp(r'burstSource\\":\\"([^\\]+)').firstMatch(body)?.group(1);
+  String? directLink;
+
+  if (burstSource != null && burstSource.isNotEmpty && burstSource != "update_me") {
+    try {
+      final apiResponse = await http.get(Uri.parse('https://www.lycoris.cafe/api/watch/getBurstLink?link=$burstSource'));
+
+      final responseData = jsonDecode(apiResponse.body);
+      directLink = responseData['downloadUrl'];
+    } catch (e) {
+      log("Burst link failed: $e");
+      // Continue to fallback method
+    }
+  }
+
+  // Fallback to secondary link if burst source failed or wasn't available
+  if (directLink == null) {
+    try {
+      final apiResponse = await http.get(Uri.parse('https://www.lycoris.cafe/api/watch/getSecondaryLink?id=$episodeId'));
+
+      // Get decoded response, but check if it's valid
+      final decodedResponse = decodeLycorisUrl(apiResponse.body);
+      if (decodedResponse == null) {
+        log("Failed to decode Lycoris URL");
+        controller.evaluateJavascript(source: 'alert(`Could not decode video data`)');
+        return;
+      }
+
+      try {
+        final videoData = jsonDecode(decodedResponse);
+        directLink = videoData["FHD"] ?? videoData["HD"] ?? videoData["SD"];
+      } catch (e) {
+        log("JSON parsing failed after decoding: $e");
+        controller.evaluateJavascript(source: 'alert(`Could not parse video data`)');
+        return;
+      }
+    } catch (e) {
+      log("Secondary link failed: $e");
+      controller.evaluateJavascript(source: 'alert(`Failed to get secondary video link`)');
+      return;
+    }
+  }
+
+  // Check if we got a valid link from any method
+  if (directLink == null) {
+    controller.evaluateJavascript(source: 'alert(`Could not find a valid video link`)');
+    return;
+  }
+
+  // Process the video with the found link
   process(controller, directLink, title, mode);
 }
 
@@ -853,51 +893,89 @@ void luluPlayer(controller, url, mode) async {
 }
 
 void rumblePlayer(controller, url, mode) async {
-  final response = await http.get(
-    Uri.parse(url),
-    headers: {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
-  );
+  final headers = {
+    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+  };
 
-  if (response.statusCode != 200) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
-    return;
-  }
+  try {
+    final response = await http.get(Uri.parse(url), headers: headers);
 
-  final html = response.body;
-
-  // Extract title
-  RegExp titleRegex = RegExp(r'"title":"([^"]+)"');
-  var title = titleRegex.firstMatch(html)?.group(1) ?? 'Rumble Video';
-
-  // Get URL for highest quality
-  // If it doesn't exist, it will fall back to lower qualities or default
-  final qualityOrder = ["1080", "720", "480", "360"];
-  String? directLink;
-
-  for (final quality in qualityOrder) {
-    final match = RegExp('"$quality":\\s*{.*?"url":\\s*"(https:\\\\/\\\\/[^"]+\\.mp4)"', dotAll: true).firstMatch(html);
-    if (match != null) {
-      directLink = match.group(1);
-      title += ' [${quality}p]';
-      break;
+    if (response.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Video does not exist or is unavailable`)');
+      return;
     }
+
+    final html = response.body;
+
+    // Extract title
+    RegExp titleRegex = RegExp(r'"title":"([^"]+)"');
+    final title = titleRegex.firstMatch(html)?.group(1) ?? 'Rumble Video';
+
+    // Extract the 'ua' part - TODO: this still can be simplified
+    String? directLink;
+    String? qualityFound;
+    bool isHLS = false;
+
+    // Quality order from highest to lowest
+    final qualityOrder = ["1080", "720", "480", "360", "240"];
+
+    // Check for MP4 format
+    for (final quality in qualityOrder) {
+      RegExp mp4Regex = RegExp(r'"ua".*?"mp4".*?"' + quality + r'".*?"url":"(https?:[^"]+\.mp4)"');
+      final mp4Match = mp4Regex.firstMatch(html);
+
+      if (mp4Match != null) {
+        directLink = mp4Match.group(1)?.replaceAll(r'\/', '/');
+        qualityFound = quality;
+        break;
+      }
+    }
+
+    // Check for direct HLS link
+    if (directLink == null) {
+      RegExp hlsRegex = RegExp(r'"hls".*?"auto".*?"url":"(https?:[^"]+\.m3u8[^"]*)"');
+      final hlsMatch = hlsRegex.firstMatch(html);
+
+      if (hlsMatch != null) {
+        directLink = hlsMatch.group(1)?.replaceAll(r'\/', '/');
+        qualityFound = "auto";
+        isHLS = true;
+      }
+    }
+
+    // .tar is not supported in video players (i guess?) - keep this as a backup for now
+    // if (directLink == null) {
+    //   for (final quality in qualityOrder) {
+    //     RegExp tarRegex = RegExp(r'"ua".*?"tar".*?"' + quality + r'".*?"url":"(https?:[^"]+\.tar[^"]*)"');
+    //     final tarMatch = tarRegex.firstMatch(html);
+
+    //     if (tarMatch != null) {
+    //       directLink = tarMatch.group(1)?.replaceAll(r'\/', '/');
+    //       qualityFound = quality;
+    //       isHLS = true;
+    //       break;
+    //     }
+    //   }
+    // }
+
+    if (directLink == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find a video link for any quality`)');
+      return;
+    }
+
+    // Add quality to title if found
+    final formattedTitle = qualityFound != null ? '$title [$qualityFound${qualityFound == "auto" ? "" : "p"}]' : title;
+
+    // Handle different formats appropriately
+    if (isHLS && mode == 'download') {
+      NotificationController.startIsolate(playlistTask, [directLink, formattedTitle, headers]);
+    } else {
+      process(controller, directLink, formattedTitle, mode);
+    }
+  } catch (e) {
+    log("Error in rumblePlayer: $e");
+    controller.evaluateJavascript(source: 'alert(`Error processing video: ${e.toString()}`)');
   }
-
-  // If no quality-specific URL found, try the default URL
-  if (directLink == null) {
-    final matchDefault = RegExp(r'"url":"(https:\\\/\\\/[^"]+\.mp4)"').firstMatch(html);
-    directLink = matchDefault?.group(1);
-  }
-
-  if (directLink == null) {
-    controller.evaluateJavascript(source: 'alert(`Could not extract video URL from Rumble page`)');
-    return;
-  }
-
-  // Decode the URL (handle escape sequences)
-  directLink = directLink.replaceAll(r'\/', '/');
-
-  process(controller, directLink, title, mode);
 }
 
 void streamwishPlayer(controller, url, mode) async {
@@ -979,6 +1057,49 @@ String _baseEncode(int num, int base) {
   }
 
   return _baseEncode(num ~/ base, base) + digits[num % base];
+}
+
+// Helper function to decode obfuscated Lycoris URLs
+String? decodeLycorisUrl(String encodedString) {
+  if (encodedString.isEmpty || !encodedString.endsWith("LC")) {
+    return encodedString;
+  }
+
+  try {
+    // Remove the "LC" suffix
+    String withoutSuffix = encodedString.substring(0, encodedString.length - 2);
+
+    // Reverse the string
+    String reversed = String.fromCharCodes(withoutSuffix.runes.toList().reversed);
+
+    // For each character, get its ASCII value, subtract 7, and convert back
+    List<int> shiftedCodes = [];
+    for (int i = 0; i < reversed.length; i++) {
+      int charCode = reversed.codeUnitAt(i) - 7;
+      shiftedCodes.add(charCode);
+    }
+    String shiftedString = String.fromCharCodes(shiftedCodes);
+
+    // Sanitize the string - remove any non-base64 characters
+    String sanitized = shiftedString.replaceAll(RegExp(r'[^A-Za-z0-9+/=]'), '');
+
+    // Add proper padding to the base64 string if needed
+    // while (sanitized.length % 4 != 0) {
+    //   sanitized += '=';
+    // }
+
+    // Attempt base64 decoding
+    try {
+      List<int> decodedBytes = base64.decode(sanitized);
+      return utf8.decode(decodedBytes);
+    } catch (e) {
+      log("Base64 decoding failed: $e");
+      return null;
+    }
+  } catch (e) {
+    log("Error in decodeLycorisUrl: $e");
+    return null;
+  }
 }
 
 //Helper function for dood provider
