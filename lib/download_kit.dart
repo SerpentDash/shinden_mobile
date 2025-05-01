@@ -33,7 +33,7 @@ part 'notification_controller.dart';
 
 String savePath = '/sdcard/Download/Shinden';
 
-void process(controller, url, fileName, mode) async {
+void process(controller, url, fileName, mode, {Map<String, String>? headers}) async {
   String title = fileName.toString().trim();
   switch (mode) {
     case 'stream':
@@ -45,7 +45,7 @@ void process(controller, url, fileName, mode) async {
       ).launch();
       break;
     case 'download':
-      download(url, fileName);
+      download(url, fileName, headers: headers ?? {});
       break;
     default:
       break;

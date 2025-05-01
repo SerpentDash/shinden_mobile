@@ -30,13 +30,15 @@
         'okru',
         'yourupload',
         'aparat',
-        'default',
+        //'default', // 'default' contains multiple providers, hard to tell which one
         'mega', // maybe will check in future
         'lycoriscafe',
         'pixeldrain',
         //'lulustream', // not yet
         'rumble',
-        'streamwish'
+        'streamwish',
+        'filemoon',
+        'vidhide',
     ]; // 'streamsb', 'hqq'
 
     function overrideButtons(source) {

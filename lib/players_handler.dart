@@ -18,13 +18,14 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['ok.ru'], okruPlayer),
   MapEntry(['yourupload'], youruploadPlayer),
   MapEntry(['wolfstream'], aparatPlayer),
-  MapEntry(['filemoon'], defaultPlayer), // 'streamvid' there are more hosts...
+  MapEntry(['filemoon'], filemoonPlayer),
   MapEntry(['mega'], megaPlayer),
   MapEntry(['lycoris'], lycorisPlayer),
   MapEntry(['pixeldrain'], pixeldrainPlayer),
   //MapEntry(['lulu'], luluPlayer), // not yet
   MapEntry(['rumble'], rumblePlayer),
   MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
+  MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
 ];
 
 void handleLink(controller, url, mode) async {
@@ -870,6 +871,9 @@ void luluPlayer(controller, url, mode) async {
 
   switch (mode) {
     case 'stream':
+      // Only for internal video player
+      process(controller, masterUrl, title, mode, headers: headers);
+
       // Playlist url needs headers to respond data...
       await VideoServer().start();
 
@@ -1032,8 +1036,133 @@ void streamwishPlayer(controller, url, mode) async {
   }
 }
 
-/// [streamwishPlayer] Core unpacker algorithm
-String _unpack(String p, int a, int c, List<String> k) {
+void filemoonPlayer(controller, url, mode) async {
+  final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
+
+  //log("Filemoon URL: $url");
+
+  // Get iframe URL if present
+  var response = await http.get(Uri.parse(url), headers: headers);
+  String iframeUrl = url;
+  RegExp iframeRegex = RegExp(r'<iframe src="(https?://[^"]+)"');
+  final iframeMatch = iframeRegex.firstMatch(response.body);
+  if (iframeMatch != null) {
+    iframeUrl = iframeMatch.group(1)!;
+  }
+  //log("Filemoon iframe URL: $iframeUrl");
+
+  // Get iframe content and extract JS
+  var iframeResponse = await http.get(Uri.parse(iframeUrl), headers: headers);
+  RegExp jsRegex = RegExp(r"eval\(function\(p,a,c,k,e,d\).*?(?:return p|\}\(p)(?:\}|\))\('(.*?)',(\d+),(\d+),'(.*?)'\)\)", dotAll: true);
+  final jsMatch = jsRegex.firstMatch(iframeResponse.body);
+
+  if (jsMatch == null) {
+    controller.evaluateJavascript(source: 'alert(`Could not extract video code`)');
+    return;
+  }
+
+  // Deobfuscate JS
+  final p = jsMatch.group(1)!;
+  final a = int.parse(jsMatch.group(2)!);
+  final c = int.parse(jsMatch.group(3)!);
+  final k = jsMatch.group(4)!.split('|');
+
+  String deobfuscated = deobfuscateFilemoonJs(p, a, c, k);
+
+  // Extract URL
+  RegExp urlRegex = RegExp(r'file:"(https?://[^"]+\.m3u8[^"]*)"');
+  final urlMatch = urlRegex.firstMatch(deobfuscated);
+
+  if (urlMatch == null) {
+    controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+    return;
+  }
+
+  // Process the video
+  final directLink = urlMatch.group(1)!;
+  final title = Uri.parse(url).pathSegments.isNotEmpty ? Uri.parse(url).pathSegments.last : 'filemoon_video';
+  process(controller, directLink, title, mode);
+}
+
+void videhidePlayer(controller, url, mode) async {
+  try {
+    final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
+
+    var response = await http.get(Uri.parse(url), headers: headers);
+    final responseText = response.body;
+
+    // Find script containing the eval
+    int scriptStart = responseText.indexOf("eval(function(p,a,c,k,e,d)");
+    if (scriptStart == -1) {
+      controller.evaluateJavascript(source: 'alert(`Could not find player script`)');
+      return;
+    }
+
+    // Find script end
+    int scriptEnd = responseText.indexOf("</script>", scriptStart);
+    String evalCode = responseText.substring(scriptStart, scriptEnd);
+    //log("Extracted eval code: $evalCode");
+
+    // Get obfuscated code
+    RegExp paramRegex = RegExp(r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'\)\)", dotAll: true);
+    final evalMatch = paramRegex.firstMatch(evalCode);
+
+    if (evalMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract player data`)');
+      return;
+    }
+
+    // Extract parameters
+    final p = evalMatch.group(1)!;
+    final a = int.parse(evalMatch.group(2)!);
+    final c = int.parse(evalMatch.group(3)!);
+    final k = evalMatch.group(4)!.split('|');
+
+    // Deobfuscate
+    String deobfuscated = _unpack(p, a, c, k);
+    //log("Deobfuscated content: $deobfuscated");
+
+    // Look for URL in the deobfuscated content
+    RegExp urlRegex = RegExp(r'links=\{"hls\d*":"([^"]+)"\}');
+    final urlMatch = urlRegex.firstMatch(deobfuscated);
+
+    if (urlMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+
+    // Clean up the URL [Looks like shit ...]
+    var directLink = urlMatch.group(1)!.replaceAll(r'\/', '/').replaceAll(".split(", "").replaceAll("'", "");
+
+    // Get title
+    final title = Uri.parse(url).pathSegments.isNotEmpty ? Uri.parse(url).pathSegments.last : 'videhide_video';
+
+    process(controller, directLink, title, mode);
+  } catch (e) {
+    log("Error in videhidePlayer: $e");
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+// [Videhide] Deobfuscate script
+String customUnpack(String p, int a, int c, List<String> k) {
+  String result = p;
+
+  int counter = c;
+  while (counter > 0) {
+    counter--;
+    if (counter < k.length && k[counter].isNotEmpty) {
+      String pattern = _baseEncode(counter, a);
+      RegExp regex = RegExp('\\b$pattern\\b');
+      result = result.replaceAll(regex, k[counter]);
+    }
+  }
+
+  return result;
+}
+
+// [Filemoon] Deobfuscate script
+String deobfuscateFilemoonJs(String p, int a, int c, List<String> k) {
   int counter = c;
   while (counter > 0) {
     counter--;
@@ -1045,7 +1174,7 @@ String _unpack(String p, int a, int c, List<String> k) {
   return p;
 }
 
-/// [streamwishPlayer] Mimics toString(base) method in JS for base encoding
+// [Filemoon / streamwishPlayer] toString(base) base encoding
 String _baseEncode(int num, int base) {
   if (num < 0) {
     return '-${_baseEncode(-num, base)}';
@@ -1057,6 +1186,21 @@ String _baseEncode(int num, int base) {
   }
 
   return _baseEncode(num ~/ base, base) + digits[num % base];
+}
+
+// [StreamWish] Unpacks obfuscated JS
+String _unpack(String p, int a, int c, List<String> k) {
+  String result = p;
+
+  for (int i = 0; i < c; i++) {
+    if (i < k.length && k[i].isNotEmpty) {
+      String iBaseA = _baseEncode(i, a);
+      RegExp pattern = RegExp('\\b${RegExp.escape(iBaseA)}\\b');
+      result = result.replaceAll(pattern, k[i]);
+    }
+  }
+
+  return result;
 }
 
 // Helper function to decode obfuscated Lycoris URLs
