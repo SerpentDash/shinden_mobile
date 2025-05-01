@@ -23,7 +23,8 @@
     <application
         android:label="${applicationLabel}"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales">
         
         <activity
             android:name=".MainActivity"
