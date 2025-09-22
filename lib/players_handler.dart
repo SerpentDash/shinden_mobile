@@ -1,3 +1,5 @@
+// ignore_for_file: strict_top_level_inference
+
 part of 'download_kit.dart';
 
 //
@@ -22,19 +24,25 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['mega'], megaPlayer),
   MapEntry(['lycoris'], lycorisPlayer),
   MapEntry(['pixeldrain'], pixeldrainPlayer),
-  //MapEntry(['lulu'], luluPlayer), // not yet
   MapEntry(['rumble'], rumblePlayer),
   MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
   MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
+  MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default'], streamhlsPlayer), // 'Default'
 ];
 
-void handleLink(controller, url, mode) async {
+void handleLink(controller, url, mode, context) async {
   // Handle direct browser opening
   if (mode == 'direct') {
     await AndroidIntent(
       action: 'action_view',
       data: url,
     ).launch();
+    return;
+  }
+
+  // Handle downloading videos using Seal app
+  if (mode == 'seal') {
+    sealHandler(controller, url, mode, context);
     return;
   }
 
@@ -55,6 +63,49 @@ void handleLink(controller, url, mode) async {
     data: url,
   ).launch();
 }
+
+void sealHandler(controller, url, mode, context) async {
+  // TODO: Can you pass custom commanmds for yt-dlp? (like no ssl checking)
+  try {
+    await AndroidIntent(
+      action: 'android.intent.action.SEND',
+      type: 'text/plain',
+      package: 'com.junkfood.seal',
+      componentName: 'com.junkfood.seal.QuickDownloadActivity',
+      arguments: {'android.intent.extra.TEXT': url},
+    ).launch().catchError((error) {
+      // If Seal is not installed, show a message to the user
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: Text('Seal app is not installed'),
+            content: Text('You can find it here:\nhttps://github.com/JunkFood02/Seal'),
+            actions: [
+              TextButton(
+                child: Text('Get Seal'),
+                onPressed: () {
+                  launchUrl(Uri.parse('https://github.com/JunkFood02/Seal'));
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+              TextButton(
+                child: Text('Close'),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+   });
+  } catch (e) {
+    log("Error opening Seal app: $e");
+    controller.evaluateJavascript(source: 'alert(`Failed to open Seal app: ${e.toString()}`)');
+  }
+}
+
 
 void cdaPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
@@ -826,76 +877,6 @@ void pixeldrainPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-// [WIP] Still needs some changes
-void luluPlayer(controller, url, mode) async {
-  final Map<String, String> headers = {
-    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
-    'Referer': url
-  };
-
-  var response = await http.get(Uri.parse(url), headers: headers);
-  final body = response.body;
-
-  // Make the dl url
-  RegExp dlRegex = RegExp(r'dl\?op=view&file_code=([^&]+)&hash=([^&"]+)');
-  final dlMatch = dlRegex.firstMatch(body);
-  if (dlMatch == null) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
-    return;
-  }
-
-  // Returns int (counter of requests for this file?)
-  final dlUrl = "https://lulu.st/dl?op=view&file_code=${dlMatch.group(1)}&hash=${dlMatch.group(2)}&embed=1&adb=0";
-  await http.get(Uri.parse(dlUrl), headers: headers);
-
-  // Get playlist URL from html
-  RegExp regExp = RegExp(r'sources:\s*\[\{file:"([^"]+)"');
-  final match = regExp.firstMatch(body);
-  if (match == null) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
-    return;
-  }
-
-  // Get master playlist URL
-  String masterUrl = match.group(1)!.replaceAll('master', 'index');
-  // masterUrl = masterUrl.replaceAll('master', 'index');
-
-  // Make a request (playlist url) to ensure cookies are set
-  await http.get(Uri.parse(masterUrl), headers: headers);
-
-  // Extract title from URL path (for testing)
-  Uri u = Uri.parse(url);
-  final title = u.pathSegments[u.pathSegments.length - 1];
-
-  log("Title: $title, Target: $masterUrl");
-
-  switch (mode) {
-    case 'stream':
-      // Only for internal video player
-      process(controller, masterUrl, title, mode, headers: headers);
-
-      // Playlist url needs headers to respond data...
-      await VideoServer().start();
-
-      // Use the proxy server to handle the streaming with proper headers
-      await AndroidIntent(
-        action: 'action_view',
-        type: "video/*",
-        data: 'http://localhost:8069?${Uri(queryParameters: {'url': masterUrl, 'referer': url}).query}',
-        arguments: {'title': title},
-      ).launch().catchError((error) {
-        log("Error launching video player: $error");
-      });
-      break;
-    case 'download':
-      // Output file is corupted...
-      NotificationController.startIsolate(playlistTask, [masterUrl, title, headers]);
-      break;
-    default:
-      break;
-  }
-}
-
 void rumblePlayer(controller, url, mode) async {
   final headers = {
     'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -1140,6 +1121,58 @@ void videhidePlayer(controller, url, mode) async {
     process(controller, directLink, title, mode);
   } catch (e) {
     log("Error in videhidePlayer: $e");
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void streamhlsPlayer(controller, url, mode) async {
+  try {
+    final Map<String, String> headers = {
+      'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+      'Referer': url,
+    };
+
+    // Extract file_code from the URL path (last segment, after dash if present)
+    Uri uri = Uri.parse(url);
+    String lastSegment = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : "";
+    // file_code is after last dash or the whole segment
+    String fileCode = lastSegment.contains('-') ? lastSegment.split('-').last : lastSegment;
+    if (fileCode.endsWith('.html')) fileCode = fileCode.replaceAll('.html', '');
+    if (fileCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    // Prepare POST data
+    final postData = {
+      'op': 'embed',
+      'file_code': fileCode,
+      'auto': '0',
+      'referer': url,
+    };
+
+    // Make POST request to /dl endpoint
+    var response = await http.post(
+      Uri.parse('${uri.scheme}://${uri.host}/dl'),
+      headers: headers,
+      body: postData,
+    );
+    final responseText = response.body;
+
+    // Extract URL from HTML
+    RegExp urlRegex = RegExp(r'file:\s*"([^"]+)"');
+    final match = urlRegex.firstMatch(responseText);
+
+    if (match == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+
+    final directLink = match.group(1)!;
+
+    process(controller, directLink, 'Video from ${uri.host}', mode);
+  } catch (e) {
+    log("Error in streamhlsPlayer: $e");
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }

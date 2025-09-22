@@ -30,16 +30,21 @@
         'okru',
         'yourupload',
         'aparat',
-        //'default', // 'default' contains multiple providers, hard to tell which one
         'mega', // maybe will check in future
         'lycoriscafe',
         'pixeldrain',
-        //'lulustream', // not yet
         'rumble',
         'streamwish',
         'filemoon',
         'vidhide',
+        'savefiles',
+        'streamhls',
+        'bigwarp',
+        'default'
     ]; // 'streamsb', 'hqq'
+
+    // Providers allowed to use Seal app
+    const sealAllowlist = ['lulustream'];
 
     function overrideButtons(source) {
         const key = source.split(/_Storage\.basic = '/)[1].split("';")[0];
@@ -47,11 +52,12 @@
         let clone, data;
 
         // template for dropdown
+        // The Seal button will be added conditionally per-provider below.
         let dropdown = document.createElement('div');
         dropdown.classList.add('dropdown');
         dropdown.innerHTML = `
             <a class="button">Wybierz<i class='fa fa-chevron-down'></i></a><div class="dropdown-content">
-            <a class='button'>Stream</a><a class='button'>Pobierz</a><a class='button'>Pokaż</a></div>`;
+            <a class='button'>Pokaż</a></div>`;
 
         // clone template and assign correct values / events
         for (let i = 1; i < elements.length; i++) {
@@ -61,28 +67,59 @@
 
             let providerName = elements[i].parentElement.firstElementChild.innerText.toLowerCase();
 
-            if (providers.some(provider => providerName == provider)) {
-                // For supported providers, show dropdown with all options
-                let _dropdown = dropdown.cloneNode(true);
+            // Determine whether this provider is allowed to use Seal
+            const showSeal = sealAllowlist.some(v => providerName.includes(v));
+
+            if (showSeal) {
+                // For Seal-allowed providers show ONLY 'Pokaż' and 'Seal'
+                let _dropdown = document.createElement('div');
+                _dropdown.classList.add('dropdown');
+                _dropdown.innerHTML = `
+                    <a class="button">Wybierz<i class='fa fa-chevron-down'></i></a><div class="dropdown-content">
+                    <a class='button'>Pokaż</a><a class='button'>Seal</a></div>`;
+
                 clone.after(_dropdown);
                 clone.remove();
 
                 _dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
-                _dropdown.children[1].children[0].onclick = () => handleClick(i, data, 'stream', _dropdown.children[1].children[0].innerText);
-                _dropdown.children[1].children[1].onclick = () => handleClick(i, data, 'download', _dropdown.children[1].children[1].innerText);
-                _dropdown.children[1].children[2].onclick = () => handleClick(i, data, '', _dropdown.children[1].children[2].innerText);
-            } else {
-                // For unsupported providers, show default 'Pokaż' button (will open external browser app)
-                let normalBtn = document.createElement('a');
-                normalBtn.innerText = 'Pokaż';
-                normalBtn.classList.add('button');
-                normalBtn.dataset.old = '';
-                normalBtn.onclick = () => {
-                    selectButton(normalBtn);
-                    getPlayer(data);
-                }
-                clone.after(normalBtn);
+                const buttons = _dropdown.children[1].children;
+                // Pokaż
+                if (buttons[0]) buttons[0].onclick = () => handleClick(i, data, '', buttons[0].innerText);
+                // Seal
+                if (buttons[1]) buttons[1].onclick = () => handleClick(i, data, 'seal', buttons[1].innerText);
+            } else if (providers.some(provider => providerName == provider)) {
+                // For supported providers, build dropdown with stream/download/show
+                let _dropdown = document.createElement('div');
+                _dropdown.classList.add('dropdown');
+
+                let inner = `
+                    <a class="button">Wybierz<i class='fa fa-chevron-down'></i></a><div class="dropdown-content">
+                    <a class='button'>Stream</a><a class='button'>Pobierz</a><a class='button'>Pokaż</a></div>`;
+
+                _dropdown.innerHTML = inner;
+
+                clone.after(_dropdown);
                 clone.remove();
+
+                _dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
+                const buttons = _dropdown.children[1].children;
+                // Stream
+                if (buttons[0]) buttons[0].onclick = () => handleClick(i, data, 'stream', buttons[0].innerText);
+                // Download
+                if (buttons[1]) buttons[1].onclick = () => handleClick(i, data, 'download', buttons[1].innerText);
+                // Show
+                if (buttons[2]) buttons[2].onclick = () => handleClick(i, data, '', buttons[2].innerText);
+            } else {
+                // For unsupported providers, show minimal dropdown (Pokaż)
+                let _dropdown = dropdown.cloneNode(true);
+
+                clone.after(_dropdown);
+                clone.remove();
+
+                _dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
+                const buttons = _dropdown.children[1].children;
+                // Pokaż
+                if (buttons[0]) buttons[0].onclick = () => handleClick(i, data, '', buttons[0].innerText);
             }
         };
 
@@ -136,6 +173,9 @@
         // Handle link based on mode - empty mode opens system browser
         if (current_mode === '') {
             window.flutter_inappwebview.callHandler('open_browser', link);
+        } else if (current_mode === 'seal') {
+            // Special mode for Seal app
+            window.flutter_inappwebview.callHandler('handle_link', link, 'seal');
         } else {
             window.flutter_inappwebview.callHandler('handle_link', link, current_mode);
         }
