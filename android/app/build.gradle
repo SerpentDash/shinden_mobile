@@ -24,8 +24,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace "pl.serpentdash.shinden_mobile"
-    compileSdkVersion 35
-    ndkVersion "26.3.11579264"
+    compileSdkVersion 36
+    ndkVersion "27.0.12077973"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -53,10 +53,10 @@ android {
             applicationIdSuffix ".debug"
             manifestPlaceholders = [applicationLabel: "Shinden Debug"]
         }
-        profile {
-            applicationIdSuffix ".debug"
-            manifestPlaceholders = [applicationLabel: "Shinden Debug"]
-        }
+        // profile {
+        //     applicationIdSuffix ".debug"
+        //     manifestPlaceholders = [applicationLabel: "Shinden Debug"]
+        // }
         release {
             manifestPlaceholders = [applicationLabel: "Shinden"]
             // TODO: Add your own signing config for the release build.

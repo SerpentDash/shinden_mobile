@@ -34,6 +34,7 @@ pubspec.lock
 /build/
 /debug/
 /android/app/.cxx
+/android/.kotlin/
 
 # Symbolication related
 app.*.symbols

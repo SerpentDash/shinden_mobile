@@ -1,10 +1,10 @@
 name: shinden_mobile
 description: Unofficial mobile app for shinden.pl 
 publish_to: 'none'
-version: 0.0.9+1
+version: 0.1.0+1
 
 environment:
-  sdk: '>=3.3.4 <4.0.0'
+  sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -18,16 +18,17 @@ dependencies:
   pointycastle: ^4.0.0
   open_file_safe_plus : ^0.0.6
   flutter_hls_parser: ^2.0.1
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
   android_intent_plus: ^5.0.2
   flutter_inappwebview: ^6.0.0
   awesome_notifications: ^0.10.1
   background_downloader: ^9.2.0
-  flutter_foreground_task: ^8.8.0
+  flutter_foreground_task: ^9.1.0
   receive_sharing_intent : ^1.8.1
+  url_launcher: ^6.3.2
   
 dev_dependencies:
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
