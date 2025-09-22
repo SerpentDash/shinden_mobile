@@ -119,6 +119,14 @@ class MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
+
     pullToRefreshController = PullToRefreshController(
       settings: PullToRefreshSettings(color: Colors.white, backgroundColor: Colors.black),
       onRefresh: () async => webViewController?.reload(),
@@ -180,7 +188,7 @@ class MyAppState extends State<MyApp> {
                     // Add handlers for supported video providers
                     controller.addJavaScriptHandler(
                       handlerName: 'handle_link',
-                      callback: (args) => handleLink(controller, args[0], args[1]),
+                      callback: (args) => handleLink(controller, args[0], args[1], context),
                     );
 
                     // Add handler for opening in system browser
