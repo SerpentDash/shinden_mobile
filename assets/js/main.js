@@ -21,107 +21,98 @@
                 window.flutter_inappwebview.callHandler('reload');
                 window.onhashchange = null;
                 
-                // TODO: FIX THIS BS..
-                // Simple throttling, prevents spamming / multiple fetch requests
                 setTimeout(() => btn.removeAttribute('disabled'), 1000);
                 btn.setAttribute('disabled', '');
+                
+                const onTransitionEnd = () => {
+                    if (!target.classList.contains('show')) {
+                        target.style.display = 'none';
+                        target.innerHTML = "";
+                        target.removeEventListener('transitionend', onTransitionEnd);
+                    }
+                };
+                target.addEventListener('transitionend', onTransitionEnd);
+
                 return;
             }
 
-            // Get watch list and parse to DOM Document
-            await fetch('https://shinden.pl/api/user/to-watch', {headers: {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'}})
+            // Show loading state
+            target.innerHTML = '<div class="spinner"></div>';
+            document.body.classList.add('block_scroll');
+            target.style.display = 'block';
+            setTimeout(() => target.classList.add('show'), 10);
+
+            fetch('https://shinden.pl/api/user/to-watch', {headers: {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'}})
             .then(res => res.text())
             .then(text => {
-                let output = new DOMParser().parseFromString(text, "text/html");
-
-                // Fix class names conventions to prevent css naming issues
-                output.querySelector('.l-container-primary').className = 'container';
-                output.querySelector('.l-main-contantainer').className = 'contantainer';
-
-                // Remove useless scripts and styles
-                output.querySelectorAll('script').forEach(el => el.remove());
-                output.querySelectorAll('style').forEach(el => el.remove());
-
-                // Show imgs in high res
-                const images = output.getElementsByTagName("img");
-                for(let j=0; j < images.length; j++)
-                    images[j].src = images[j].src.replace("36x48", "225x350");
-
-                // Add border
-                let border = document.createElement('div');
-                border.innerHTML = "<div class='border-inner'></div>";
-                border.classList.add('border-outer');
-                output.getElementsByClassName('api-iframe')[0].prepend(border);
-                
-                // Conditions for sorting
-                const sortContidions = ['TV', 'ONA'];
-                
-                let counter = document.createElement('a');
-                counter.classList.add('counter');
-                let counterValue = 0;
-
-                const media_items = output.getElementsByClassName('media-item');
-                
-                [...media_items].forEach(item => {
-                    if(item.classList.contains('open-in-full-page')) return;
-                    let episode_list = item.getElementsByClassName('episode-list')[0];
-
-                    // Count numbers occurrence in string
-                    counterValue = episode_list.querySelector(".button-with-tip").title.match(/\d+/g).length; 
-
-                    // Set 'sort' value to easily separate series from movies
-                    item.dataset.sort = counterValue + (!sortContidions.some(el => item.querySelector('.anime_type').innerText.includes(el)) ? 1000000 : 0);
-                    
-                    // Set counter
-                    counter.innerText = counterValue;
-                    item.append(counter.cloneNode(true));
-
-                    // Open the newest episode when selecting media_item
-                    item.querySelector('.title').href = item.querySelector('.episode-list > a').href;
-                });
-
-                // Sort list
-                let parent = output.getElementsByClassName('wait-to-attention')[0];
-                [...media_items].sort((a, b) => 
-                    parseInt(a.dataset.sort) - parseInt(b.dataset.sort) || a.innerText.toLowerCase().localeCompare(b.innerText.toLowerCase())
-                ).forEach(item => parent.appendChild(item));
-
-                // Add space between 'Seriale' and 'Filmy'
-                let firstFilm = [...media_items].find(el => el.dataset.sort >= 10000); // find first Film element
-                if (firstFilm) {
-                    let spacing = document.createElement('hr');
-                    spacing.classList.add('spacing');
-                    parent.insertBefore(spacing, firstFilm);
-                }
-
-                // Insert new list
-                [...output.body.children].forEach(el => target.appendChild(el));
-                
-                // Prevent scrolling background and show list
-                document.body.classList.add('block_scroll');
-                target.style.display = 'block';
-                setTimeout(() => target.classList.add('show'), 100); // this will smoothly start opacity transition
-
-                // End 'opacity' transition then disable list element
-                target.addEventListener('transitionend', () => {
-                    if(!target.classList.contains('show')) {
-                        target.style.display = 'none';
-                        target.innerHTML = "";
-                    }
-                });
-
                 setTimeout(() => {
-                    // Prevent accidental reloading in flutter app
+                    let output = new DOMParser().parseFromString(text, "text/html");
+
+                    output.querySelector('.l-container-primary').className = 'container';
+                    output.querySelector('.l-main-contantainer').className = 'contantainer';
+
+                    output.querySelectorAll('script, style').forEach(el => el.remove());
+
+                    const images = output.getElementsByTagName("img");
+                    for (const img of images) {
+                        // Replace with high-res source
+                        img.src = img.src.replace("36x48", "225x350");
+                        img.loading = 'lazy';
+                    }
+                    
+
+                    let border = document.createElement('div');
+                    border.innerHTML = "<div class='border-inner'></div>";
+                    border.classList.add('border-outer');
+                    output.getElementsByClassName('api-iframe')[0].prepend(border);
+                    
+                    const sortContidions = ['TV', 'ONA'];
+                    let counter = document.createElement('a');
+                    counter.classList.add('counter');
+                    
+                    const media_items = output.getElementsByClassName('media-item');
+                    
+                    [...media_items].forEach(item => {
+                        if(item.classList.contains('open-in-full-page')) return;
+                        let episode_list = item.getElementsByClassName('episode-list')[0];
+                        // Count numbers occurrence in string
+                        let counterValue = episode_list.querySelector(".button-with-tip").title.match(/\d+/g).length; 
+                        // Set 'sort' value to easily separate series from movies
+                        item.dataset.sort = counterValue + (!sortContidions.some(el => item.querySelector('.anime_type').innerText.includes(el)) ? 1000000 : 0);
+                        // Set counter
+                        let newCounter = counter.cloneNode(true);
+                        newCounter.innerText = counterValue;
+                        item.append(newCounter);
+                        // Open the newest episode when selecting media_item
+                        item.querySelector('.title').href = item.querySelector('.episode-list > a').href;
+                    });
+
+                    // Sort list
+                    let parent = output.getElementsByClassName('wait-to-attention')[0];
+                    [...media_items].sort((a, b) => 
+                        parseInt(a.dataset.sort) - parseInt(b.dataset.sort) || a.innerText.toLowerCase().localeCompare(b.innerText.toLowerCase())
+                    ).forEach(item => parent.appendChild(item));
+
+                    // Add space between 'Seriale' and 'Filmy'
+                    let firstFilm = [...media_items].find(el => el.dataset.sort >= 10000); // find first Film element
+                    if (firstFilm) {
+                        let spacing = document.createElement('hr');
+                        spacing.classList.add('spacing');
+                        parent.insertBefore(spacing, firstFilm);
+                    }
+
+                    const fragment = document.createDocumentFragment();
+                    fragment.append(...output.body.children);
+                    target.innerHTML = '';
+                    target.appendChild(fragment);
+                    
                     window.flutter_inappwebview.callHandler('no_reload');
-                        
-                    // Let user use back button in flutter app to close list
                     location.hash = 'list';
                     setTimeout(() => window.onhashchange = () => btn.click(), 0);
                 }, 0);
             }).catch(error => {
                 btn.classList.remove('active');
                 console.log(error);
-                return;
             });
         }
     }

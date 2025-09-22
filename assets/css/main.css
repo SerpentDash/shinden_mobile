@@ -103,7 +103,6 @@ nav.nav-buttons a:hover, nav.nav-buttons a.active {color: white !important; bord
 .nav-main .nav-list > li a {padding: 8px 7px 9px 6px !important;}
 .nav-main-sub .nav-list { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; height: 65px; }
 .nav-main-sub .nav-list > li { flex-basis: 25%; }
-
 .nav-list > .is-active { background-color: rgb(100, 100, 100); border-radius: 10px; }
 .nav-main-sub .is-active{ border-radius: 6px; background-color: #424242; }
 .nav-main-sub .is-active > a {background: unset !important;}
@@ -360,9 +359,12 @@ h2.box-title {padding-left: 10px;}
 .top-bar--user button.active{ background:  rgb(66, 66, 66) !important; border-radius: 25%; }
 .top-bar--user .mobile-visible { display: inline-flex !important; overflow: hidden; max-width: 30vw;}
 .btnWL i {font-size: 1.6em; width: 2rem;}
-#la { overflow: auto; position: fixed; background-color: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none; transform: unset !important;}
+#la { overflow: auto; position: fixed; background-color: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none; transform: unset !important; transition: opacity 0.5s ease-in-out;}
+#la::-webkit-scrollbar { width: 0; }
 #la.show {opacity: 1; z-index: 9999;}
-#la .container, #la .contantainer { background-color: unset; padding: 7px}
+.spinner { width: 48px; height: 48px; border: 5px solid #FFF; border-bottom-color: transparent; border-radius: 50%; position: absolute; inset: 0; margin: auto; display: flex; justify-content: center; align-items: center; box-sizing: border-box; animation: rotation 1s linear infinite; z-index: 10000; }
+@keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } 
+#la .container, #la .contantainer { background-color: unset; padding: 6px}
 #la .media-item .media-title-cover { background: unset}
 li img.img.media-title-cover { width: 120px}
 #la .open-in-full-page { display: none !important; position: relative; }
@@ -378,7 +380,7 @@ li img.img.media-title-cover { width: 120px}
 #la ul.wait-to-attention .episode-list { display: none; }
 #la ul.wait-to-attention .info-line { display: none; }
 #la ul.wait-to-attention .anime_type { display: none; }
-#la .border-inner { position: fixed; border: 10px solid rgb(66,66,66); background-color: transparent; border-radius: 32px; inset: 0; z-index: 99999; margin: 2px 2px 0; top: 38px }
+#la .border-inner { position: fixed; border: 10px solid rgb(66,66,66); background-color: transparent; border-radius: 20px; inset: 0; z-index: 99999; margin: 2px 2px 0; top: 38px }
 #la .border-outer { position: fixed; border: 10px solid rgb(66,66,66); background-color: transparent; z-index: 99999999; inset: 0; pointer-events: none; top: 38px}
 #la .counter { position: absolute; top: 0; right: 0; padding: 1px 3px; margin: 4% 6%; border-radius: 3px; background-color: rgba(24, 24, 24, .6); }
 #la .spacing { grid-column: 1 / span 3; margin: 0; }
