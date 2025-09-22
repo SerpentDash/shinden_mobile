@@ -110,16 +110,20 @@
                 // Show
                 if (buttons[2]) buttons[2].onclick = () => handleClick(i, data, '', buttons[2].innerText);
             } else {
-                // For unsupported providers, show minimal dropdown (Pokaż)
-                let _dropdown = dropdown.cloneNode(true);
+                // For unsupported providers, show default 'Pokaż' button (will open external browser app)
+                let normalBtn = document.createElement('a');
 
-                clone.after(_dropdown);
+                normalBtn.innerText = 'Pokaż';
+                normalBtn.classList.add('button');
+                normalBtn.dataset.old = '';
+                
+                normalBtn.onclick = () => {
+                    selectButton(normalBtn);
+                    getPlayer(data);
+                }
+
+                clone.after(normalBtn);
                 clone.remove();
-
-                _dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
-                const buttons = _dropdown.children[1].children;
-                // Pokaż
-                if (buttons[0]) buttons[0].onclick = () => handleClick(i, data, '', buttons[0].innerText);
             }
         };
 
