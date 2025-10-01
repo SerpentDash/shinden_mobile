@@ -28,15 +28,13 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
   MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default'], streamhlsPlayer), // 'Default'
+  MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
 ];
 
 void handleLink(controller, url, mode, context) async {
   // Handle direct browser opening
   if (mode == 'direct') {
-    await AndroidIntent(
-      action: 'action_view',
-      data: url,
-    ).launch();
+    await AndroidIntent(action: 'action_view', data: url).launch();
     return;
   }
 
@@ -58,10 +56,7 @@ void handleLink(controller, url, mode, context) async {
   }
 
   // No match found, open in browser
-  AndroidIntent(
-    action: 'action_view',
-    data: url,
-  ).launch();
+  AndroidIntent(action: 'action_view', data: url).launch();
 }
 
 void sealHandler(controller, url, mode, context) async {
@@ -99,13 +94,12 @@ void sealHandler(controller, url, mode, context) async {
           );
         },
       );
-   });
+    });
   } catch (e) {
     log("Error opening Seal app: $e");
     controller.evaluateJavascript(source: 'alert(`Failed to open Seal app: ${e.toString()}`)');
   }
 }
-
 
 void cdaPlayer(controller, url, mode) async {
   var response = await http.get(Uri.parse(url));
@@ -131,13 +125,7 @@ void cdaPlayer(controller, url, mode) async {
 
   var data = '{"jsonrpc":"2.0","method":"videoGetLink","params":["$id","${quality!.value}","$ts","$hash2",{}],"id":1}';
 
-  http.Response r = await http.post(
-    Uri.parse("https://www.cda.pl/"),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: data,
-  );
+  http.Response r = await http.post(Uri.parse("https://www.cda.pl/"), headers: {'Content-Type': 'application/json'}, body: data);
   final directLink = pick(json.decode(r.body), 'result', 'resp').asStringOrNull().toString();
 
   process(controller, directLink, "${Uri.decodeFull(title!)} [${quality.key}]", mode);
@@ -186,10 +174,7 @@ void sibnetPlayer(controller, url, mode) async {
   Dio dio = Dio();
   final r2 = await dio.head(
     "https://video.sibnet.ru$urlMatch",
-    options: Options(
-      validateStatus: (status) => true,
-      headers: {"referer": "$url"},
-    ),
+    options: Options(validateStatus: (status) => true, headers: {"referer": "$url"}),
   );
 
   // Format direct link
@@ -231,10 +216,7 @@ void streamtapePlayer(controller, url, mode) async {
   Dio dio = Dio();
   final head = await dio.head(
     "https://$clearUrl&stream=1",
-    options: Options(
-      validateStatus: (status) => true,
-      headers: {"referer": "$url"},
-    ),
+    options: Options(validateStatus: (status) => true, headers: {"referer": "$url"}),
   );
   //log(head.realUri.toString());
 
@@ -258,10 +240,7 @@ void mp4uploadPlayer(controller, url, mode) async {
   var response = await http.post(
     Uri.parse(url),
     body: "op=download2&id=$mp4Id&rand=&referer=https%3A%2F%2Fwww.mp4upload.com%2F&method_free=Free+Download&method_premium=",
-    headers: {
-      "Referer": url,
-      "content-type": "application/x-www-form-urlencoded",
-    },
+    headers: {"Referer": url, "content-type": "application/x-www-form-urlencoded"},
   );
 
   final directLink = response.headers.entries.elementAt(1).value;
@@ -283,9 +262,7 @@ void mp4uploadPlayer(controller, url, mode) async {
         data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': url}).query}',
         arguments: {'title': title},
       ).launch().catchError((error) {
-        ScaffoldMessenger.of(controller).showSnackBar(
-          SnackBar(content: Text('Failed to open video player: $error')),
-        );
+        ScaffoldMessenger.of(controller).showSnackBar(SnackBar(content: Text('Failed to open video player: $error')));
       });
       break;
     case 'download':
@@ -315,10 +292,7 @@ void doodPlayer(controller, url, mode) async {
     return;
   }
 
-  await http.get(
-    Uri.parse("https://$host${watch}1&ref2=&adb=0&ftor=0"),
-    headers: {"Referer": url},
-  );
+  await http.get(Uri.parse("https://$host${watch}1&ref2=&adb=0&ftor=0"), headers: {"Referer": url});
 
   final md5Regex = RegExp("'/pass_md5/([^/]+)/([^/]+)'");
   final md5 = md5Regex.allMatches(body).map((str) => str.group(0)).single?.replaceAll("'", '');
@@ -347,9 +321,7 @@ void doodPlayer(controller, url, mode) async {
         data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': url}).query}',
         arguments: {'title': title},
       ).launch().catchError((error) {
-        ScaffoldMessenger.of(controller).showSnackBar(
-          SnackBar(content: Text('Failed to open video player: $error')),
-        );
+        ScaffoldMessenger.of(controller).showSnackBar(SnackBar(content: Text('Failed to open video player: $error')));
       });
       break;
     case 'download':
@@ -380,12 +352,7 @@ void dailymotionPlayer(controller, url, mode) async {
 
   final target = json["qualities"]["auto"][0]["url"];
 
-  var m3uResponse = await http.get(
-    Uri.parse(target),
-    headers: {
-      "Referer": "https://www.dailymotion.com/",
-    },
-  );
+  var m3uResponse = await http.get(Uri.parse(target), headers: {"Referer": "https://www.dailymotion.com/"});
 
   RegExp pattern = RegExp(r'PROGRESSIVE-URI="([^"]*)"');
 
@@ -402,10 +369,7 @@ void supervideoPlayer(controller, url, mode) async {
   Dio dio = Dio();
   final response = await dio.get(
     url,
-    options: Options(
-      validateStatus: (status) => true,
-      headers: headers,
-    ),
+    options: Options(validateStatus: (status) => true, headers: headers),
   );
 
   if (response.statusCode != 200) {
@@ -433,12 +397,7 @@ void supervideoPlayer(controller, url, mode) async {
 
   switch (mode) {
     case 'stream':
-      AndroidIntent(
-        action: 'action_view',
-        type: "video/*",
-        data: directLink,
-        arguments: {'title': title},
-      ).launch();
+      AndroidIntent(action: 'action_view', type: "video/*", data: directLink, arguments: {'title': title}).launch();
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
@@ -449,9 +408,10 @@ void supervideoPlayer(controller, url, mode) async {
 }
 
 void vkPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
-  });
+  var response = await http.get(
+    Uri.parse(url),
+    headers: {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"},
+  );
   final body = response.body;
 
   // Find url any valid video link (starting from the highest quality)
@@ -483,9 +443,10 @@ void vkPlayer(controller, url, mode) async {
 }
 
 void okruPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url), headers: {
-    'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
-  });
+  var response = await http.get(
+    Uri.parse(url),
+    headers: {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"},
+  );
   String body = response.body;
 
   body = body.replaceAll("\\", "").replaceAll("u0026", "&").replaceAll("&quot;", '"').replaceAll("%3B", ";");
@@ -542,10 +503,7 @@ void youruploadPlayer(controller, url, mode) async {
   final urlWithoutToken = 'https://www.yourupload.com${regExp.firstMatch(r1.body)!.group(0)!}';
 
   // Trigger download (without token)
-  var r2 = await http.get(
-    Uri.parse(urlWithoutToken),
-    headers: {"referer": url},
-  );
+  var r2 = await http.get(Uri.parse(urlWithoutToken), headers: {"referer": url});
 
   // Get download link with token
   final doc2 = parse(r2.body);
@@ -563,9 +521,7 @@ void youruploadPlayer(controller, url, mode) async {
         data: 'http://localhost:8069?${Uri(queryParameters: {'url': directLink, 'referer': urlWithoutToken}).query}',
         arguments: {'title': title},
       ).launch().catchError((error) {
-        ScaffoldMessenger.of(controller).showSnackBar(
-          SnackBar(content: Text('Failed to open video player: $error')),
-        );
+        ScaffoldMessenger.of(controller).showSnackBar(SnackBar(content: Text('Failed to open video player: $error')));
       });
       break;
     case 'download':
@@ -597,12 +553,7 @@ void aparatPlayer(controller, url, mode) async {
 
   switch (mode) {
     case 'stream':
-      AndroidIntent(
-        action: 'action_view',
-        type: "video/*",
-        data: directLink,
-        arguments: {'title': title},
-      ).launch();
+      AndroidIntent(action: 'action_view', type: "video/*", data: directLink, arguments: {'title': title}).launch();
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
@@ -664,7 +615,7 @@ void defaultPlayer(controller, url, mode) async {
   Uri u = Uri.parse(url);
   final title = u.pathSegments[u.pathSegments.length - 1].split('.').first;
 
-/*   // Get highest quality link
+  /*   // Get highest quality link
 	var master = await http.get(Uri.parse(directLink), headers: headers);
 	RegExp masterRegex = RegExp(r'https?://[^\s]+index[^\s]*');
 
@@ -673,12 +624,7 @@ void defaultPlayer(controller, url, mode) async {
 
   switch (mode) {
     case 'stream':
-      AndroidIntent(
-        action: 'action_view',
-        type: "video/*",
-        data: directLink,
-        arguments: {'title': title},
-      ).launch();
+      AndroidIntent(action: 'action_view', type: "video/*", data: directLink, arguments: {'title': title}).launch();
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
@@ -692,10 +638,7 @@ void megaPlayer(controller, url, mode) async {
   final status = await Permission.ignoreBatteryOptimizations.request();
   if (status.isGranted) {
     final packageName = Platform.resolvedExecutable.split('/').last.split('-')[0];
-    final intent = AndroidIntent(
-      action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-      data: 'package:$packageName',
-    );
+    final intent = AndroidIntent(action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', data: 'package:$packageName');
     await intent.launch();
   }
 
@@ -722,7 +665,7 @@ void megaPlayer(controller, url, mode) async {
       final apiResponse = await http.post(
         Uri.parse('https://eu.api.mega.co.nz/cs'),
         body: jsonEncode([
-          {"a": "g", "g": 1, "p": paramId}
+          {"a": "g", "g": 1, "p": paramId},
         ]),
       );
 
@@ -761,9 +704,7 @@ void megaPlayer(controller, url, mode) async {
         data: 'http://localhost:8069/mega?${Uri(queryParameters: {'url': fileUrl, 'key': base64UrlEncode(key), 'iv': base64UrlEncode(iv)}).query}',
         arguments: {'title': fileName},
       ).launch().catchError((error) {
-        ScaffoldMessenger.of(controller).showSnackBar(
-          SnackBar(content: Text('Failed to open video player: $error')),
-        );
+        ScaffoldMessenger.of(controller).showSnackBar(SnackBar(content: Text('Failed to open video player: $error')));
       });
       break;
     case 'download':
@@ -857,10 +798,7 @@ void pixeldrainPlayer(controller, url, mode) async {
   // Create direct link and get title from its headers
   final directLink = "https://pixeldrain.com/api/file/$id?download";
   Dio dio = Dio();
-  final response = await dio.head(
-    directLink,
-    options: Options(validateStatus: (status) => true),
-  );
+  final response = await dio.head(directLink, options: Options(validateStatus: (status) => true));
 
   if (response.statusCode != 200) {
     controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
@@ -879,7 +817,7 @@ void pixeldrainPlayer(controller, url, mode) async {
 
 void rumblePlayer(controller, url, mode) async {
   final headers = {
-    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
   };
 
   try {
@@ -966,7 +904,7 @@ void rumblePlayer(controller, url, mode) async {
 void streamwishPlayer(controller, url, mode) async {
   try {
     final headers = {
-      'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     };
 
     // Fetch HTML
@@ -1144,19 +1082,10 @@ void streamhlsPlayer(controller, url, mode) async {
     }
 
     // Prepare POST data
-    final postData = {
-      'op': 'embed',
-      'file_code': fileCode,
-      'auto': '0',
-      'referer': url,
-    };
+    final postData = {'op': 'embed', 'file_code': fileCode, 'auto': '0', 'referer': url};
 
     // Make POST request to /dl endpoint
-    var response = await http.post(
-      Uri.parse('${uri.scheme}://${uri.host}/dl'),
-      headers: headers,
-      body: postData,
-    );
+    var response = await http.post(Uri.parse('${uri.scheme}://${uri.host}/dl'), headers: headers, body: postData);
     final responseText = response.body;
 
     // Extract URL from HTML
@@ -1173,6 +1102,104 @@ void streamhlsPlayer(controller, url, mode) async {
     process(controller, directLink, 'Video from ${uri.host}', mode);
   } catch (e) {
     log("Error in streamhlsPlayer: $e");
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void streamupPlayer(controller, url, mode) async {
+  try {
+    final Map<String, String> headers = {
+      'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
+      'Referer': url,
+    };
+
+    // Get real host
+    Dio dio = Dio();
+    final headResponse = await dio.head(
+      url,
+      options: Options(validateStatus: (status) => true, headers: headers),
+    );
+    String realHost = headResponse.realUri.host;
+
+    // Extract file_code from the URL path
+    Uri uri = Uri.parse(url);
+    String lastSegment = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : "";
+    String fileCode = lastSegment.contains('-') ? lastSegment.split('-').last : lastSegment;
+    if (fileCode.endsWith('.html')) fileCode = fileCode.replaceAll('.html', '');
+    if (fileCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    // Fetch HTML page
+    var htmlResponse = await http.get(uri, headers: headers);
+    if (htmlResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not load page`)');
+      return;
+    }
+
+    final htmlContent = htmlResponse.body;
+
+    // Extract cookie
+    String? siteTotalId;
+    final setCookie = htmlResponse.headers['set-cookie'];
+    if (setCookie != null) {
+      final cookieRegex = RegExp(r'SITE_TOTAL_ID=([^;]+)');
+      final match = cookieRegex.firstMatch(setCookie);
+      if (match != null) {
+        siteTotalId = match.group(1);
+      }
+    }
+
+    // Extract session ID (32 hex chars)
+    RegExp sessionRegex = RegExp(r'[a-f0-9]{32}');
+    final sessionMatch = sessionRegex.firstMatch(htmlContent);
+    if (sessionMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find session ID`)');
+      return;
+    }
+
+    final sessionId = sessionMatch.group(0)!;
+
+    // Make request
+    final ajaxUri = Uri.parse('https://$realHost/ajax/stream').replace(queryParameters: {'session': sessionId, 'filecode': fileCode});
+    final ajaxHeaders = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36',
+      'Referer': url,
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json, text/javascript, */*; q=0.01',
+    };
+    if (siteTotalId != null) {
+      ajaxHeaders['Cookie'] = 'SITE_TOTAL_ID=$siteTotalId';
+    }
+    var ajaxResponse = await http.get(ajaxUri, headers: ajaxHeaders);
+    if (ajaxResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not get video data: ${ajaxResponse.statusCode}`)');
+      return;
+    }
+
+    // Check if response is HTML (error page)
+    if (ajaxResponse.body.startsWith('<!DOCTYPE')) {
+      log("Ajax response is HTML: ${ajaxResponse.body}");
+      controller.evaluateJavascript(source: 'alert(`Server returned error page instead of data`)');
+      return;
+    }
+
+    // Parse JSON and get direct url
+    final jsonData = jsonDecode(ajaxResponse.body);
+    final streamingUrl = jsonData['streaming_url'];
+    if (streamingUrl == null) {
+      controller.evaluateJavascript(source: 'alert(`No streaming URL found`)');
+      return;
+    }
+
+    // Extract title from HTML
+    final document = parse(htmlContent);
+    String title = document.querySelector('title')?.text ?? 'Video from ${uri.host}';
+
+    process(controller, streamingUrl, title, mode);
+  } catch (e) {
+    log("Error in streamupPlayer: $e");
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
@@ -1297,10 +1324,7 @@ Future<void> requestIgnoreBatteryOptimizations() async {
   final status = await Permission.ignoreBatteryOptimizations.request();
   if (status.isGranted) {
     final packageName = Platform.resolvedExecutable.split('/').last.split('-')[0];
-    final intent = AndroidIntent(
-      action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-      data: 'package:$packageName',
-    );
+    final intent = AndroidIntent(action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', data: 'package:$packageName');
     await intent.launch();
   }
 }
