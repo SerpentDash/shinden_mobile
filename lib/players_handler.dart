@@ -27,8 +27,10 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['rumble'], rumblePlayer),
   MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
   MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
-  MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default'], streamhlsPlayer), // 'Default'
+  MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
+  MapEntry(['bysesukior'], bysesukiorPlayer),
+  MapEntry(['vidara'], vidaraPlayer),
 ];
 
 void handleLink(controller, url, mode, context) async {
@@ -716,73 +718,84 @@ void megaPlayer(controller, url, mode) async {
 }
 
 void lycorisPlayer(controller, url, mode) async {
-  var response = await http.get(Uri.parse(url));
-  final body = response.body;
+  try {
+    final uri = Uri.parse(url);
+    final id = uri.queryParameters['id'];
+    final episode = uri.queryParameters['episode'];
 
-  final episodeId = RegExp(r'\\\"id\\\":(\d+)').firstMatch(body)?.group(1);
-
-  if (episodeId == null) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist or is unavailable!`)');
-    return;
-  }
-
-  // Extract episode number and title
-  final number = RegExp(r'\\"number\\":(\d+)').firstMatch(body)?.group(1) ?? '';
-  final episodeTitle = RegExp(r'\\"title\\":\\"([^\\]+)').firstMatch(body)?.group(1) ?? 'Unknown';
-  final title = "$number. $episodeTitle";
-
-  // Try burst source method first
-  final burstSource = RegExp(r'burstSource\\":\\"([^\\]+)').firstMatch(body)?.group(1);
-  String? directLink;
-
-  if (burstSource != null && burstSource.isNotEmpty && burstSource != "update_me") {
-    try {
-      final apiResponse = await http.get(Uri.parse('https://www.lycoris.cafe/api/watch/getBurstLink?link=$burstSource'));
-
-      final responseData = jsonDecode(apiResponse.body);
-      directLink = responseData['downloadUrl'];
-    } catch (e) {
-      log("Burst link failed: $e");
-      // Continue to fallback method
-    }
-  }
-
-  // Fallback to secondary link if burst source failed or wasn't available
-  if (directLink == null) {
-    try {
-      final apiResponse = await http.get(Uri.parse('https://www.lycoris.cafe/api/watch/getSecondaryLink?id=$episodeId'));
-
-      // Get decoded response, but check if it's valid
-      final decodedResponse = decodeLycorisUrl(apiResponse.body);
-      if (decodedResponse == null) {
-        log("Failed to decode Lycoris URL");
-        controller.evaluateJavascript(source: 'alert(`Could not decode video data`)');
-        return;
-      }
-
-      try {
-        final videoData = jsonDecode(decodedResponse);
-        directLink = videoData["FHD"] ?? videoData["HD"] ?? videoData["SD"];
-      } catch (e) {
-        log("JSON parsing failed after decoding: $e");
-        controller.evaluateJavascript(source: 'alert(`Could not parse video data`)');
-        return;
-      }
-    } catch (e) {
-      log("Secondary link failed: $e");
-      controller.evaluateJavascript(source: 'alert(`Failed to get secondary video link`)');
+    if (id == null || id.isEmpty || episode == null || episode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Invalid Lycoris link`)');
       return;
     }
-  }
 
-  // Check if we got a valid link from any method
-  if (directLink == null) {
-    controller.evaluateJavascript(source: 'alert(`Could not find a valid video link`)');
-    return;
-  }
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Referer': url,
+    };
 
-  // Process the video with the found link
-  process(controller, directLink, title, mode);
+    final apiUri = Uri.parse('${uri.scheme}://${uri.host}/api/embed').replace(queryParameters: {'id': id, 'episode': episode});
+    final apiResponse = await http.get(apiUri, headers: headers);
+
+    if (apiResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not load episode data`)');
+      return;
+    }
+
+    final payload = jsonDecode(apiResponse.body);
+    final episodeInfo = payload['episodeInfo'];
+    if (episodeInfo == null || episodeInfo is! Map) {
+      controller.evaluateJavascript(source: 'alert(`Episode data is missing`)');
+      return;
+    }
+
+    final number = episodeInfo['number']?.toString() ?? '';
+    final episodeTitle = episodeInfo['title']?.toString() ?? 'Unknown';
+    final title = number.isNotEmpty ? '$number. $episodeTitle' : episodeTitle;
+
+    String? directLink;
+
+    final primarySource = episodeInfo['primarySource'];
+    if (primarySource is Map) {
+      for (final key in ['FHD', 'HD', 'SD', 'preview', 'SourceMKV']) {
+        final value = primarySource[key]?.toString();
+        if (value != null && value.isNotEmpty) {
+          directLink = value;
+          break;
+        }
+      }
+    }
+
+    if (directLink == null) {
+      for (final key in ['FHD', 'HD', 'SD', 'PL']) {
+        final value = episodeInfo[key]?.toString();
+        if (value == null || value.isEmpty) {
+          continue;
+        }
+
+        if (value.startsWith('http')) {
+          directLink = value;
+          break;
+        }
+
+        final decoded = decodeLycorisUrl(value);
+        if (decoded != null && decoded.startsWith('http')) {
+          directLink = decoded;
+          break;
+        }
+      }
+    }
+
+    if (directLink == null || directLink.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not find a valid video link`)');
+      return;
+    }
+
+    process(controller, directLink, title, mode);
+  } catch (e) {
+    log('Error in lycorisPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
 }
 
 void pixeldrainPlayer(controller, url, mode) async {
@@ -1202,6 +1215,208 @@ void streamupPlayer(controller, url, mode) async {
     log("Error in streamupPlayer: $e");
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
+}
+
+void bysesukiorPlayer(controller, url, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    String videoCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+
+    if (videoCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract video code from URL`)');
+      return;
+    }
+
+    final baseUrl = '${uri.scheme}://${uri.host}';
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Referer': url,
+      'Origin': baseUrl,
+      'X-Embed-Origin': baseUrl,
+      'X-Embed-Referer': url,
+      'X-Embed-Parent': baseUrl,
+    };
+
+    final playbackUri = Uri.parse('$baseUrl/api/videos/$videoCode/embed/playback');
+    final playbackResponse = await http.get(playbackUri, headers: headers);
+
+    if (playbackResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not get video data: ${playbackResponse.statusCode}`)');
+      return;
+    }
+
+    final playbackJson = jsonDecode(playbackResponse.body);
+    final playbackData = playbackJson['playback'];
+    if (playbackData == null || playbackData is! Map) {
+      controller.evaluateJavascript(source: 'alert(`Invalid playback response`)');
+      return;
+    }
+
+    final keyParts = (playbackData['key_parts'] as List?)?.whereType<String>().toList() ?? const <String>[];
+    if (keyParts.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Missing decryption key parts`)');
+      return;
+    }
+
+    final keyBytes = Uint8List.fromList(keyParts.expand((keyPart) => _decodeBase64UrlBytes(keyPart)).toList());
+
+    Map<String, dynamic>? decryptedData;
+
+    for (final candidate in [
+      {'iv': playbackData['iv'], 'payload': playbackData['payload']},
+      {'iv': playbackData['iv2'], 'payload': playbackData['payload2']},
+    ]) {
+      final ivValue = candidate['iv'];
+      final payloadValue = candidate['payload'];
+      if (ivValue is! String || payloadValue is! String) {
+        continue;
+      }
+
+      try {
+        final ivBytes = _decodeBase64UrlBytes(ivValue);
+        final payloadBytes = _decodeBase64UrlBytes(payloadValue);
+        final plainBytes = _decryptAesGcmBytes(keyBytes, ivBytes, payloadBytes);
+        final decoded = jsonDecode(utf8.decode(plainBytes));
+        if (decoded is Map<String, dynamic>) {
+          decryptedData = decoded;
+          break;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    if (decryptedData == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not decrypt playback data`)');
+      return;
+    }
+
+    final sources = (decryptedData['sources'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+    if (sources.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No video sources found`)');
+      return;
+    }
+
+    String? directLink;
+    int bestBitrate = -1;
+    for (final source in sources) {
+      final sourceUrl = source['url']?.toString();
+      if (sourceUrl == null || sourceUrl.isEmpty) {
+        continue;
+      }
+
+      final bitrate = int.tryParse(source['bitrate_kbps']?.toString() ?? '') ?? 0;
+      if (directLink == null || bitrate > bestBitrate) {
+        directLink = sourceUrl;
+        bestBitrate = bitrate;
+      }
+    }
+
+    if (directLink == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find direct video URL`)');
+      return;
+    }
+
+    String title = 'Video from ${uri.host}';
+    try {
+      final detailsUri = Uri.parse('$baseUrl/api/videos/$videoCode/embed/details');
+      final detailsResponse = await http.get(detailsUri, headers: headers);
+      if (detailsResponse.statusCode == 200) {
+        final detailsJson = jsonDecode(detailsResponse.body);
+        final fetchedTitle = detailsJson['title']?.toString();
+        if (fetchedTitle != null && fetchedTitle.trim().isNotEmpty) {
+          title = fetchedTitle.trim();
+        }
+      }
+    } catch (_) {
+      // Ignore details fetch errors and fallback to host-based title
+    }
+
+    process(controller, directLink, title, mode);
+  } catch (e) {
+    log('Error in bysesukiorPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void vidaraPlayer(controller, url, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    String fileCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+
+    if (fileCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': url,
+      'Accept': 'application/json, text/plain, */*',
+    };
+
+    String title = 'Video from ${uri.host}';
+    try {
+      final htmlResponse = await http.get(uri, headers: headers);
+      if (htmlResponse.statusCode == 200) {
+        final document = parse(htmlResponse.body);
+        final htmlTitle = document.querySelector('title')?.text.trim();
+        if (htmlTitle != null && htmlTitle.isNotEmpty) {
+          title = htmlTitle.replaceAll(RegExp(r'\s*-\s*vidara\s*$', caseSensitive: false), '').trim();
+        }
+      }
+    } catch (_) {
+      // Keep fallback title
+    }
+
+    final streamApi = Uri.parse('${uri.scheme}://${uri.host}/api/stream').replace(queryParameters: {'filecode': fileCode});
+    final apiResponse = await http.get(streamApi, headers: headers);
+
+    if (apiResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not get video data: ${apiResponse.statusCode}`)');
+      return;
+    }
+
+    final data = jsonDecode(apiResponse.body);
+    final directLink = data['streaming_url']?.toString();
+    if (directLink == null || directLink.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No streaming URL found`)');
+      return;
+    }
+
+    final apiTitle = data['title']?.toString();
+    if (apiTitle != null && apiTitle.trim().isNotEmpty) {
+      title = apiTitle.trim();
+    }
+
+    process(controller, directLink, title, mode);
+  } catch (e) {
+    log('Error in vidaraPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+// bysesukiorPlayer helpers
+Uint8List _decodeBase64UrlBytes(String input) {
+  var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
+  final padding = (4 - normalized.length % 4) % 4;
+  if (padding > 0) {
+    normalized = normalized.padRight(normalized.length + padding, '=');
+  }
+  return Uint8List.fromList(base64.decode(normalized));
+}
+
+Uint8List _decryptAesGcmBytes(Uint8List key, Uint8List iv, Uint8List encryptedBytes) {
+  final cipher = pc.GCMBlockCipher(pc.AESEngine());
+  final params = pc.AEADParameters(pc.KeyParameter(key), 128, iv, Uint8List(0));
+  cipher.init(false, params);
+
+  final output = Uint8List(cipher.getOutputSize(encryptedBytes.length));
+  final len1 = cipher.processBytes(encryptedBytes, 0, encryptedBytes.length, output, 0);
+  final len2 = cipher.doFinal(output, len1);
+
+  return output.sublist(0, len1 + len2);
 }
 
 // [Videhide] Deobfuscate script
