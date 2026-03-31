@@ -1371,7 +1371,10 @@ void vidaraPlayer(controller, url, mode) async {
     }
 
     final streamApi = Uri.parse('${uri.scheme}://${uri.host}/api/stream').replace(queryParameters: {'filecode': fileCode});
-    final apiResponse = await http.get(streamApi, headers: headers);
+
+    final postHeaders = Map<String, String>.from(headers);
+    postHeaders['Content-Type'] = 'application/json';
+    http.Response apiResponse = await http.post(streamApi, headers: postHeaders, body: jsonEncode({'filecode': fileCode}));
 
     if (apiResponse.statusCode != 200) {
       controller.evaluateJavascript(source: 'alert(`Could not get video data: ${apiResponse.statusCode}`)');
