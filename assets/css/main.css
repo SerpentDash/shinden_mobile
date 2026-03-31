@@ -359,7 +359,7 @@ h2.box-title {padding-left: 10px;}
 .top-bar--user button.active{ background:  rgb(66, 66, 66) !important; border-radius: 25%; }
 .top-bar--user .mobile-visible { display: inline-flex !important; overflow: hidden; max-width: 30vw;}
 .btnWL i {font-size: 1.6em; width: 2rem;}
-#la { overflow: auto; position: fixed; background-color: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none; transform: unset !important; transition: opacity 0.5s ease-in-out;}
+#la { overflow: auto; position: fixed; background: rgb(66, 66, 66) !important; top: 38px; height: calc(100% - 38px); max-height: unset !important; left:0 !important; right: 0 !important; transition: opacity .2s ease-in; opacity: 0; display: none; transform: unset !important; transition: opacity 0.5s ease-in-out;}
 #la::-webkit-scrollbar { width: 0; }
 #la.show {opacity: 1; z-index: 9999;}
 .spinner { width: 48px; height: 48px; border: 5px solid #FFF; border-bottom-color: transparent; border-radius: 50%; position: absolute; inset: 0; margin: auto; display: flex; justify-content: center; align-items: center; box-sizing: border-box; animation: rotation 1s linear infinite; z-index: 10000; }
