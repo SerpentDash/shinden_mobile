@@ -1,8 +1,12 @@
 (function() {
-    'use strict'; 
+    'use strict';
+
+    if (window.__shinden_main) return;
+    window.__shinden_main = true;
 
     // Watch list 2.0
     function animeWatchList() {
+        if (document.querySelector('.btnWL')) return;
 
         // create new button (for anime watch list)
         let btn = document.createElement('button');
@@ -361,6 +365,10 @@
     }
 
     function waitForElement(selector, callback) {
+        if (document.querySelector(selector)) {
+            setTimeout(() => callback(), 0);
+            return;
+        }
         new MutationObserver(function() {
             if (document.readyState === "complete") this.disconnect();
             if (document.querySelector(selector)) {

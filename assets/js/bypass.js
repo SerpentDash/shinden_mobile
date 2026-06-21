@@ -1,16 +1,27 @@
 (function () {
     'use strict';
 
-    new MutationObserver(function () {
-        if (document.readyState === "complete") this.disconnect();
+    if (window.__shinden_bypass) return;
+    window.__shinden_bypass = true;
 
-        // Get next element to make sure our target (previous element) is fully loaded
-        if (document.querySelector('.player-navigator-section')) {
-            this.disconnect();
-            setTimeout(() => overrideButtons(document.documentElement.textContent), 0);
-            container = document.getElementsByClassName("player-online box")[0];
-        }
-    }).observe(document, { childList: true, subtree: true });
+    function initBypass() {
+        if (document.querySelector('.ep-buttons .dropdown')) return;
+
+        overrideButtons(document.documentElement.textContent);
+        container = document.getElementsByClassName("player-online box")[0];
+    }
+
+    if (document.querySelector('.player-navigator-section')) {
+        setTimeout(initBypass, 0);
+    } else {
+        new MutationObserver(function () {
+            if (document.readyState === "complete") this.disconnect();
+            if (document.querySelector('.player-navigator-section')) {
+                this.disconnect();
+                setTimeout(initBypass, 0);
+            }
+        }).observe(document, { childList: true, subtree: true });
+    }
 
     async function getReq(url, callback = null) {
         await fetch(url, { credentials: 'include' }).then(async r => callback && callback(await r.text()));

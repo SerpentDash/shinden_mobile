@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:convert';
 
@@ -14,6 +15,7 @@ import 'package:android_intent_plus/android_intent.dart';
 
 import 'download_kit.dart';
 import 'video_server.dart';
+import 'webview_debug.dart';
 
 String css = "";
 List<String> hosts = [];
@@ -36,6 +38,17 @@ final urlWhiteList = [
 String tempUrl = "";
 String tempRequest = "";
 
+// add styling and features only to shinden.pl
+bool injectable(String url) =>
+    url.contains('shinden.pl') && !url.contains('shinden.pl/animelist');
+
+String cssInjectionSource() => """
+(function(){
+  if(location.hostname.indexOf('shinden.pl')===-1||location.pathname.indexOf('/animelist')!==-1)return;
+  var s=new CSSStyleSheet();s.replaceSync(window.atob('$css'));document.adoptedStyleSheets=[s];
+})();
+""";
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -46,8 +59,8 @@ void main() async {
   LineSplitter.split(hostFile).forEach((line) => hosts.add(line));
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
-    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode /* true */);
+    PlatformInAppWebViewController.debugLoggingSettings.enabled = kDebugMode;
+    await InAppWebViewController.setWebContentsDebuggingEnabled(kDebugMode);
   }
 
   runApp(MaterialApp(
@@ -150,6 +163,28 @@ class MyAppState extends State<MyApp> {
     super.dispose();
   }
 
+  Future<void> injectCss(InAppWebViewController controller, String url) async {
+    if (!injectable(url)) return;
+    await controller.evaluateJavascript(source: cssInjectionSource());
+  }
+
+  Future<void> injectJs(InAppWebViewController controller, String url, {bool retry = false}) async {
+    if (!injectable(url)) return;
+
+    if (retry) {
+      final done = await controller.evaluateJavascript(source: 'window.__shinden_main === true');
+      if (done == true || done == 'true') return;
+    } else {
+      // Guard preventing multiple injections of the same file
+      await controller.evaluateJavascript(source: 'window.__shinden_main = false; window.__shinden_bypass = false;');
+    }
+
+    await controller.injectJavascriptFileFromAsset(assetFilePath: 'assets/js/main.js');
+    if (url.contains('shinden.pl/episode') || url.contains('shinden.pl/epek')) {
+      await controller.injectJavascriptFileFromAsset(assetFilePath: 'assets/js/bypass.js');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -160,11 +195,38 @@ class MyAppState extends State<MyApp> {
         body: SafeArea(
           child: Column(
             children: <Widget>[
+              if (kDebugMode /* false */) // webview console log for debug version
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: WebViewDebug.events,
+                  builder: (context, events, _) {
+                    if (events.isEmpty) return const SizedBox.shrink();
+                    return Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxHeight: 110),
+                      color: const Color(0xCC000000),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: SingleChildScrollView(
+                        reverse: true,
+                        child: Text(
+                          events.join('\n'),
+                          style: const TextStyle(color: Color(0xFF7CFC7C), fontSize: 10, height: 1.2),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               Expanded(
                 child: InAppWebView(
                   key: webViewKey,
                   initialUrlRequest: URLRequest(url: WebUri("https://shinden.pl")),
                   initialSettings: settings,
+                  initialUserScripts: UnmodifiableListView([
+                    UserScript(
+                      source: cssInjectionSource(),
+                      injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+                      forMainFrameOnly: true,
+                    ),
+                  ]),
                   contextMenu: contextMenu,
                   pullToRefreshController: pullToRefreshController,
                   onWebViewCreated: (controller) async {
@@ -205,25 +267,11 @@ class MyAppState extends State<MyApp> {
                   onLoadStart: (controller, url) async {
                     pullToRefreshController?.setEnabled(true);
                     tempUrl = url.toString();
-
-                    if (tempUrl.contains("shinden.pl") && !tempUrl.contains("shinden.pl/animelist")) {
-                      // ADD CSS
+                    WebViewDebug.log('LOAD', 'start $tempUrl');
+                    if (injectable(tempUrl)) {
                       Future.microtask(() async {
-                        await controller.evaluateJavascript(source: """
-                          const sheet = new CSSStyleSheet();
-                          sheet.replaceSync(window.atob('$css'));
-                          document.adoptedStyleSheets = [sheet];
-                          """);
-                      });
-
-                      // ADD JS
-                      Future.microtask(() async {
-                        await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/main.js");
-
-                        // ADD BYPASS JS
-                        if (tempUrl.contains("shinden.pl/episode") || tempUrl.contains("shinden.pl/epek")) {
-                          await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/js/bypass.js");
-                        }
+                        await injectCss(controller, tempUrl);
+                        await injectJs(controller, tempUrl);
                       });
                     }
                   },
@@ -237,12 +285,14 @@ class MyAppState extends State<MyApp> {
 
                     // White list
                     if (!urlWhiteList.any((el) => tempRequest.contains(el))) {
+                      WebViewDebug.log('BLOCK', tempRequest);
                       return WebResourceResponse(data: Uint8List(0));
                     }
 
                     // Adblock
                     for (var i = 0; i < hosts.length; i++) {
                       if (tempRequest.contains(hosts.elementAt(i))) {
+                        WebViewDebug.log('BLOCK', tempRequest);
                         return WebResourceResponse(data: Uint8List(0));
                       }
                     }
@@ -251,12 +301,17 @@ class MyAppState extends State<MyApp> {
                   },
                   onLoadStop: (controller, url) async {
                     pullToRefreshController?.endRefreshing();
+                    tempUrl = url.toString();
+                    WebViewDebug.log('LOAD', 'stop $tempUrl');
+                    await injectJs(controller, tempUrl, retry: true);
                   },
                   onReceivedError: (controller, request, error) async {
                     pullToRefreshController?.endRefreshing();
-                    if (error.type.toString() != "UNKNOWN" || request.isForMainFrame == true) {
-                      await controller.injectJavascriptFileFromAsset(assetFilePath: 'assets/js/error.js');
-                    }
+                    WebViewDebug.log('ERROR', '${error.type} mainFrame=${request.isForMainFrame} ${request.url}');
+
+                    if (request.isForMainFrame != true) return;
+
+                    await controller.injectJavascriptFileFromAsset(assetFilePath: 'assets/js/error.js');
                   },
                   onProgressChanged: (controller, progress) {
                     if (progress == 100) {
