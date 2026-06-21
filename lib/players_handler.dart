@@ -29,7 +29,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
-  MapEntry(['bysesukior'], bysesukiorPlayer),
+  MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
   MapEntry(['vidara'], vidaraPlayer),
 ];
 
