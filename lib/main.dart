@@ -35,6 +35,23 @@ final urlWhiteList = [
   "google.com/recaptcha"
 ];
 
+bool shouldBlockRequest(
+  String url, {
+  required Iterable<String> whitelist,
+  required Iterable<String> adblockHosts,
+}) {
+  if (url.contains('shinden.pl')) {
+    return false;
+  }
+  if (whitelist.any(url.contains)) {
+    return false;
+  }
+  if (adblockHosts.any(url.contains)) {
+    return true;
+  }
+  return true;
+}
+
 String tempUrl = "";
 String tempRequest = "";
 
@@ -283,18 +300,10 @@ class MyAppState extends State<MyApp> {
                       return null;
                     }
 
-                    // White list
-                    if (!urlWhiteList.any((el) => tempRequest.contains(el))) {
+                    // Whitelist + adblock
+                    if (shouldBlockRequest(tempRequest, whitelist: urlWhiteList, adblockHosts: hosts)) {
                       WebViewDebug.log('BLOCK', tempRequest);
                       return WebResourceResponse(data: Uint8List(0));
-                    }
-
-                    // Adblock
-                    for (var i = 0; i < hosts.length; i++) {
-                      if (tempRequest.contains(hosts.elementAt(i))) {
-                        WebViewDebug.log('BLOCK', tempRequest);
-                        return WebResourceResponse(data: Uint8List(0));
-                      }
                     }
 
                     return null;

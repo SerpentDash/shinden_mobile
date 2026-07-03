@@ -17,6 +17,7 @@ for /f "delims=" %%a in ('dir /b /s ".\build\app\outputs\flutter-apk\*arm64-v8a*
 if not defined apk_found goto :error
 
 call adb shell am start -n "pl.serpentdash.shinden_mobile.debug/pl.serpentdash.shinden_mobile.MainActivity"
+call adb logcat -s flutter
 if "%~1" == "-show" start explorer ".\build\app\outputs\flutter-apk\"
 goto :eof
 

@@ -28,6 +28,7 @@ import 'package:android_intent_plus/android_intent.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'video_server.dart';
+import 'provider_capture.dart';
 
 part 'players_handler.dart';
 part 'notification_controller.dart';

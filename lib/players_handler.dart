@@ -30,10 +30,10 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
-  MapEntry(['vidara'], vidaraPlayer),
+  MapEntry(['vidara', 'vidaarax', 'vidavaca'], vidaraPlayer),
 ];
 
-void handleLink(controller, url, mode, context) async {
+void handleLink(controller, url, mode, [context]) async {
   // Handle direct browser opening
   if (mode == 'direct') {
     await AndroidIntent(action: 'action_view', data: url).launch();
@@ -42,7 +42,7 @@ void handleLink(controller, url, mode, context) async {
 
   // Handle downloading videos using Seal app
   if (mode == 'seal') {
-    sealHandler(controller, url, mode, context);
+    sealHandler(controller, url, context, mode);
     return;
   }
 
@@ -52,7 +52,7 @@ void handleLink(controller, url, mode, context) async {
   // Use correct handler for current url
   for (final handler in handlers) {
     if (handler.key.any((host) => link.host.contains(host))) {
-      handler.value(controller, url, mode);
+      handler.value(controller, url, context, mode);
       return;
     }
   }
@@ -61,7 +61,8 @@ void handleLink(controller, url, mode, context) async {
   AndroidIntent(action: 'action_view', data: url).launch();
 }
 
-void sealHandler(controller, url, mode, context) async {
+void sealHandler(controller, url, context, mode) async {
+  if (context == null) return;
   // TODO: Can you pass custom commanmds for yt-dlp? (like no ssl checking)
   try {
     await AndroidIntent(
@@ -103,7 +104,7 @@ void sealHandler(controller, url, mode, context) async {
   }
 }
 
-void cdaPlayer(controller, url, mode) async {
+void cdaPlayer(controller, url, context, mode) async {
   var response = await http.get(Uri.parse(url));
   final document = parse(response.body);
 
@@ -133,7 +134,7 @@ void cdaPlayer(controller, url, mode) async {
   process(controller, directLink, "${Uri.decodeFull(title!)} [${quality.key}]", mode);
 }
 
-void gdrivePlayer(controller, url, mode) async {
+void gdrivePlayer(controller, url, context, mode) async {
   Uri uri = Uri.parse(url);
 
   var response = await http.get(uri);
@@ -155,7 +156,7 @@ void gdrivePlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void sibnetPlayer(controller, url, mode) async {
+void sibnetPlayer(controller, url, context, mode) async {
   var r1 = await http.get(Uri.parse(url));
 
   // Get video url
@@ -186,7 +187,7 @@ void sibnetPlayer(controller, url, mode) async {
   process(controller, "https:$directLink", titleMatch, mode);
 }
 
-void streamtapePlayer(controller, url, mode) async {
+void streamtapePlayer(controller, url, context, mode) async {
   var response = await http.get(Uri.parse(url));
   final responseBody = response.body;
 
@@ -231,7 +232,7 @@ void streamtapePlayer(controller, url, mode) async {
   process(controller, head.realUri.toString(), title, mode);
 }
 
-void mp4uploadPlayer(controller, url, mode) async {
+void mp4uploadPlayer(controller, url, context, mode) async {
   await requestIgnoreBatteryOptimizations();
 
   url = url.toString().replaceAll("embed-", "");
@@ -275,7 +276,7 @@ void mp4uploadPlayer(controller, url, mode) async {
   }
 }
 
-void doodPlayer(controller, url, mode) async {
+void doodPlayer(controller, url, context, mode) async {
   await requestIgnoreBatteryOptimizations();
 
   var r1 = await http.get(Uri.parse(url));
@@ -334,7 +335,7 @@ void doodPlayer(controller, url, mode) async {
   }
 }
 
-void dailymotionPlayer(controller, url, mode) async {
+void dailymotionPlayer(controller, url, context, mode) async {
   RegExp regExp = RegExp(r'\/video\/([^?/]+)');
   final id = regExp.firstMatch(url)!.group(1);
 
@@ -364,7 +365,7 @@ void dailymotionPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void supervideoPlayer(controller, url, mode) async {
+void supervideoPlayer(controller, url, context, mode) async {
   final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
   // Send request for direct link
@@ -409,7 +410,7 @@ void supervideoPlayer(controller, url, mode) async {
   }
 }
 
-void vkPlayer(controller, url, mode) async {
+void vkPlayer(controller, url, context, mode) async {
   var response = await http.get(
     Uri.parse(url),
     headers: {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"},
@@ -444,7 +445,7 @@ void vkPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void okruPlayer(controller, url, mode) async {
+void okruPlayer(controller, url, context, mode) async {
   var response = await http.get(
     Uri.parse(url),
     headers: {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"},
@@ -486,7 +487,7 @@ void okruPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void youruploadPlayer(controller, url, mode) async {
+void youruploadPlayer(controller, url, context, mode) async {
   await requestIgnoreBatteryOptimizations();
 
   url = url.toString().replaceAll("embed", "watch");
@@ -534,7 +535,7 @@ void youruploadPlayer(controller, url, mode) async {
   }
 }
 
-void aparatPlayer(controller, url, mode) async {
+void aparatPlayer(controller, url, context, mode) async {
   final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
   var response = await http.get(Uri.parse(url), headers: headers);
@@ -565,7 +566,7 @@ void aparatPlayer(controller, url, mode) async {
   }
 }
 
-void defaultPlayer(controller, url, mode) async {
+void defaultPlayer(controller, url, context, mode) async {
   // Add user agent to be able to open url in external video player
   final Map<String, String> headers = mode == "stream"
       ? {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"}
@@ -636,7 +637,7 @@ void defaultPlayer(controller, url, mode) async {
   }
 }
 
-void megaPlayer(controller, url, mode) async {
+void megaPlayer(controller, url, context, mode) async {
   final status = await Permission.ignoreBatteryOptimizations.request();
   if (status.isGranted) {
     final packageName = Platform.resolvedExecutable.split('/').last.split('-')[0];
@@ -717,7 +718,7 @@ void megaPlayer(controller, url, mode) async {
   }
 }
 
-void lycorisPlayer(controller, url, mode) async {
+void lycorisPlayer(controller, url, context, mode) async {
   try {
     final uri = Uri.parse(url);
     final id = uri.queryParameters['id'];
@@ -798,7 +799,7 @@ void lycorisPlayer(controller, url, mode) async {
   }
 }
 
-void pixeldrainPlayer(controller, url, mode) async {
+void pixeldrainPlayer(controller, url, context, mode) async {
   // Extract file ID from URL
   RegExp regExp = RegExp(r'/u/([^/?]+)');
   final id = regExp.firstMatch(url)!.group(1);
@@ -828,7 +829,7 @@ void pixeldrainPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void rumblePlayer(controller, url, mode) async {
+void rumblePlayer(controller, url, context, mode) async {
   final headers = {
     'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
   };
@@ -914,7 +915,7 @@ void rumblePlayer(controller, url, mode) async {
   }
 }
 
-void streamwishPlayer(controller, url, mode) async {
+void streamwishPlayer(controller, url, context, mode) async {
   try {
     final headers = {
       'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -968,7 +969,7 @@ void streamwishPlayer(controller, url, mode) async {
   }
 }
 
-void filemoonPlayer(controller, url, mode) async {
+void filemoonPlayer(controller, url, context, mode) async {
   final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
   //log("Filemoon URL: $url");
@@ -1016,7 +1017,7 @@ void filemoonPlayer(controller, url, mode) async {
   process(controller, directLink, title, mode);
 }
 
-void videhidePlayer(controller, url, mode) async {
+void videhidePlayer(controller, url, context, mode) async {
   try {
     final headers = {'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"};
 
@@ -1076,7 +1077,7 @@ void videhidePlayer(controller, url, mode) async {
   }
 }
 
-void streamhlsPlayer(controller, url, mode) async {
+void streamhlsPlayer(controller, url, context, mode) async {
   try {
     final Map<String, String> headers = {
       'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
@@ -1119,7 +1120,7 @@ void streamhlsPlayer(controller, url, mode) async {
   }
 }
 
-void streamupPlayer(controller, url, mode) async {
+void streamupPlayer(controller, url, context, mode) async {
   try {
     final Map<String, String> headers = {
       'User-Agent': "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36",
@@ -1217,130 +1218,114 @@ void streamupPlayer(controller, url, mode) async {
   }
 }
 
-void bysesukiorPlayer(controller, url, mode) async {
-  try {
-    final uri = Uri.parse(url);
-    String videoCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+void bysesukiorPlayer(controller, url, context, mode) async {
+  if (context == null) {
+    controller.evaluateJavascript(source: 'alert(`Missing context for this player`)');
+    return;
+  }
 
-    if (videoCode.isEmpty) {
-      controller.evaluateJavascript(source: 'alert(`Could not extract video code from URL`)');
-      return;
+  Uint8List decodeB64Url(String input) {
+    var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
+    final padding = (4 - normalized.length % 4) % 4;
+    if (padding > 0) normalized = normalized.padRight(normalized.length + padding, '=');
+    return Uint8List.fromList(base64.decode(normalized));
+  }
+
+  Uint8List decryptAes(Uint8List key, Uint8List iv, Uint8List encrypted) {
+    final cipher = pc.GCMBlockCipher(pc.AESEngine());
+    cipher.init(false, pc.AEADParameters(pc.KeyParameter(key), 128, iv, Uint8List(0)));
+    final output = Uint8List(cipher.getOutputSize(encrypted.length));
+    final len1 = cipher.processBytes(encrypted, 0, encrypted.length, output, 0);
+    final len2 = cipher.doFinal(output, len1);
+    return output.sublist(0, len1 + len2);
+  }
+
+  String? parseCapture(ProviderCaptureEvent event) {
+    if (event.type != ProviderCaptureEventType.fetchResponse || !event.url.contains('embed/playback')) {
+      return null;
     }
 
-    final baseUrl = '${uri.scheme}://${uri.host}';
-    final headers = <String, String>{
-      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
-      'Accept': 'application/json, text/plain, */*',
-      'Referer': url,
-      'Origin': baseUrl,
-      'X-Embed-Origin': baseUrl,
-      'X-Embed-Referer': url,
-      'X-Embed-Parent': baseUrl,
-    };
+    final body = event.body;
+    if (body == null || body.isEmpty) return null;
 
-    final playbackUri = Uri.parse('$baseUrl/api/videos/$videoCode/embed/playback');
-    final playbackResponse = await http.get(playbackUri, headers: headers);
-
-    if (playbackResponse.statusCode != 200) {
-      controller.evaluateJavascript(source: 'alert(`Could not get video data: ${playbackResponse.statusCode}`)');
-      return;
-    }
-
-    final playbackJson = jsonDecode(playbackResponse.body);
-    final playbackData = playbackJson['playback'];
-    if (playbackData == null || playbackData is! Map) {
-      controller.evaluateJavascript(source: 'alert(`Invalid playback response`)');
-      return;
-    }
-
-    final keyParts = (playbackData['key_parts'] as List?)?.whereType<String>().toList() ?? const <String>[];
-    if (keyParts.isEmpty) {
-      controller.evaluateJavascript(source: 'alert(`Missing decryption key parts`)');
-      return;
-    }
-
-    final keyBytes = Uint8List.fromList(keyParts.expand((keyPart) => _decodeBase64UrlBytes(keyPart)).toList());
-
-    Map<String, dynamic>? decryptedData;
-
-    for (final candidate in [
-      {'iv': playbackData['iv'], 'payload': playbackData['payload']},
-      {'iv': playbackData['iv2'], 'payload': playbackData['payload2']},
-    ]) {
-      final ivValue = candidate['iv'];
-      final payloadValue = candidate['payload'];
-      if (ivValue is! String || payloadValue is! String) {
-        continue;
-      }
-
-      try {
-        final ivBytes = _decodeBase64UrlBytes(ivValue);
-        final payloadBytes = _decodeBase64UrlBytes(payloadValue);
-        final plainBytes = _decryptAesGcmBytes(keyBytes, ivBytes, payloadBytes);
-        final decoded = jsonDecode(utf8.decode(plainBytes));
-        if (decoded is Map<String, dynamic>) {
-          decryptedData = decoded;
-          break;
-        }
-      } catch (_) {
-        continue;
-      }
-    }
-
-    if (decryptedData == null) {
-      controller.evaluateJavascript(source: 'alert(`Could not decrypt playback data`)');
-      return;
-    }
-
-    final sources = (decryptedData['sources'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
-    if (sources.isEmpty) {
-      controller.evaluateJavascript(source: 'alert(`No video sources found`)');
-      return;
-    }
-
-    String? directLink;
-    int bestBitrate = -1;
-    for (final source in sources) {
-      final sourceUrl = source['url']?.toString();
-      if (sourceUrl == null || sourceUrl.isEmpty) {
-        continue;
-      }
-
-      final bitrate = int.tryParse(source['bitrate_kbps']?.toString() ?? '') ?? 0;
-      if (directLink == null || bitrate > bestBitrate) {
-        directLink = sourceUrl;
-        bestBitrate = bitrate;
-      }
-    }
-
-    if (directLink == null) {
-      controller.evaluateJavascript(source: 'alert(`Could not find direct video URL`)');
-      return;
-    }
-
-    String title = 'Video from ${uri.host}';
     try {
-      final detailsUri = Uri.parse('$baseUrl/api/videos/$videoCode/embed/details');
-      final detailsResponse = await http.get(detailsUri, headers: headers);
-      if (detailsResponse.statusCode == 200) {
-        final detailsJson = jsonDecode(detailsResponse.body);
-        final fetchedTitle = detailsJson['title']?.toString();
-        if (fetchedTitle != null && fetchedTitle.trim().isNotEmpty) {
-          title = fetchedTitle.trim();
+      final decoded = jsonDecode(body);
+      if (decoded is! Map) return null;
+
+      final playbackData = decoded['playback'];
+      if (playbackData is! Map) return null;
+
+      final keyParts = (playbackData['key_parts'] as List?)?.whereType<String>().toList() ?? const <String>[];
+      if (keyParts.isEmpty) return null;
+
+      final keyBytes = Uint8List.fromList(keyParts.expand(decodeB64Url).toList());
+      Map<String, dynamic>? decrypted;
+
+      for (final candidate in [
+        {'iv': playbackData['iv'], 'payload': playbackData['payload']},
+        {'iv': playbackData['iv2'], 'payload': playbackData['payload2']},
+      ]) {
+        final ivValue = candidate['iv'];
+        final payloadValue = candidate['payload'];
+        if (ivValue is! String || payloadValue is! String) continue;
+
+        try {
+          final plain = decryptAes(keyBytes, decodeB64Url(ivValue), decodeB64Url(payloadValue));
+          final parsed = jsonDecode(utf8.decode(plain));
+          if (parsed is Map<String, dynamic>) {
+            decrypted = parsed;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (decrypted == null) return null;
+
+      final sources = (decrypted['sources'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+      String? directLink;
+      var bestBitrate = -1;
+      for (final source in sources) {
+        final sourceUrl = source['url']?.toString();
+        if (sourceUrl == null || sourceUrl.isEmpty) continue;
+        final bitrate = int.tryParse(source['bitrate_kbps']?.toString() ?? '') ?? 0;
+        if (directLink == null || bitrate > bestBitrate) {
+          directLink = sourceUrl;
+          bestBitrate = bitrate;
         }
       }
+      return directLink;
     } catch (_) {
-      // Ignore details fetch errors and fallback to host-based title
+      return null;
     }
+  }
 
-    process(controller, directLink, title, mode);
+  try {
+    final capture = await showProviderCaptureDialog(
+      context,
+      embedUrl: url,
+      config: ProviderCaptureConfig(
+        dialogTitle: 'Weryfikacja playera',
+        hint: 'Naciśnij play, aby ukończyć weryfikację.',
+        watchFetchPatterns: const ['embed/playback'],
+        enableDefaultStreamCapture: true,
+        fallbackTitle: (embedUrl) {
+          final uri = Uri.parse(embedUrl);
+          final code = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+          return code.isNotEmpty ? 'Video $code' : 'Video from ${uri.host}';
+        },
+        onCapture: parseCapture,
+      ),
+    );
+
+    if (capture == null || capture.url.isEmpty) return;
+    process(controller, capture.url, capture.title, mode);
   } catch (e) {
     log('Error in bysesukiorPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
 
-void vidaraPlayer(controller, url, mode) async {
+void vidaraPlayer(controller, url, context, mode) async {
   try {
     final uri = Uri.parse(url);
     String fileCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
@@ -1398,28 +1383,6 @@ void vidaraPlayer(controller, url, mode) async {
     log('Error in vidaraPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
-}
-
-// bysesukiorPlayer helpers
-Uint8List _decodeBase64UrlBytes(String input) {
-  var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
-  final padding = (4 - normalized.length % 4) % 4;
-  if (padding > 0) {
-    normalized = normalized.padRight(normalized.length + padding, '=');
-  }
-  return Uint8List.fromList(base64.decode(normalized));
-}
-
-Uint8List _decryptAesGcmBytes(Uint8List key, Uint8List iv, Uint8List encryptedBytes) {
-  final cipher = pc.GCMBlockCipher(pc.AESEngine());
-  final params = pc.AEADParameters(pc.KeyParameter(key), 128, iv, Uint8List(0));
-  cipher.init(false, params);
-
-  final output = Uint8List(cipher.getOutputSize(encryptedBytes.length));
-  final len1 = cipher.processBytes(encryptedBytes, 0, encryptedBytes.length, output, 0);
-  final len2 = cipher.doFinal(output, len1);
-
-  return output.sublist(0, len1 + len2);
 }
 
 // [Videhide] Deobfuscate script
