@@ -1,32 +1,12 @@
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'webview_debug.dart';
 
 const _defaultUserAgent =
     'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36';
-
-enum ProviderCaptureEventType {
-  fetchRequest,
-  fetchResponse,
-  networkRequest,
-}
-
-class ProviderCaptureEvent {
-  const ProviderCaptureEvent({
-    required this.type,
-    required this.url,
-    this.body,
-  });
-
-  final ProviderCaptureEventType type;
-  final String url;
-  final String? body;
-}
 
 class ProviderCaptureResult {
   const ProviderCaptureResult({required this.url, required this.title});
@@ -35,93 +15,41 @@ class ProviderCaptureResult {
   final String title;
 }
 
-class _ProviderCaptureRestart {
-  const _ProviderCaptureRestart();
-}
-
-Future<void> _resetCaptureSession(String embedUrl) async {
-  final origin = Uri.tryParse(embedUrl)?.origin;
-  if (origin == null || origin.isEmpty) return;
-  await CookieManager.instance().deleteCookies(url: WebUri(origin));
-}
-
 class ProviderCaptureConfig {
   const ProviderCaptureConfig({
     required this.dialogTitle,
     required this.hint,
-    this.watchFetchPatterns = const [],
-    this.watchNetworkPatterns = const [],
-    this.enableDefaultStreamCapture = false,
-    this.extraUserScript,
     this.fallbackTitle,
-    this.onCapture,
     this.userAgent = _defaultUserAgent,
   });
 
   final String dialogTitle;
   final String hint;
-  final List<String> watchFetchPatterns;
-  final List<String> watchNetworkPatterns;
-  final bool enableDefaultStreamCapture;
-  final String? extraUserScript;
   final String Function(String embedUrl)? fallbackTitle;
-  final String? Function(ProviderCaptureEvent event)? onCapture;
   final String userAgent;
-}
-
-String? _captureScriptCache;
-
-Future<String> _captureScriptSource() async {
-  return _captureScriptCache ??= await rootBundle.loadString('assets/js/capture.js');
 }
 
 Future<ProviderCaptureResult?> showProviderCaptureDialog(
   BuildContext context, {
   required String embedUrl,
   required ProviderCaptureConfig config,
-}) async {
-  final captureScript = await _captureScriptSource();
-  if (!context.mounted) return null;
-
-  while (context.mounted) {
-    await _resetCaptureSession(embedUrl);
-    if (!context.mounted) return null;
-
-    final result = await showDialog<Object?>(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => _ProviderCaptureDialog(
-        embedUrl: embedUrl,
-        config: config,
-        captureScript: captureScript,
-      ),
-    );
-
-    if (result is ProviderCaptureResult) {
-      return result;
-    }
-    if (result is _ProviderCaptureRestart) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      continue;
-    }
-    return null;
-  }
-
-  return null;
+}) {
+  return showDialog<ProviderCaptureResult>(
+    context: context,
+    barrierDismissible: true,
+    builder: (_) => _ProviderCaptureDialog(embedUrl: embedUrl, config: config),
+  );
 }
 
 InAppWebViewSettings _captureWebViewSettings(String userAgent) => InAppWebViewSettings(
       javaScriptEnabled: true,
-      incognito: true,
       domStorageEnabled: true,
       databaseEnabled: true,
       thirdPartyCookiesEnabled: true,
       cacheEnabled: false,
       mediaPlaybackRequiresUserGesture: false,
-      useShouldInterceptRequest: true,
-      useShouldInterceptAjaxRequest: false,
-      useShouldInterceptFetchRequest: false,
-      userAgent: userAgent,
+      useOnLoadResource: true,
+      useShouldOverrideUrlLoading: true,
     );
 
 Map<String, String> _embedRequestHeaders(String embedUrl, String userAgent) {
@@ -139,12 +67,10 @@ class _ProviderCaptureDialog extends StatefulWidget {
   const _ProviderCaptureDialog({
     required this.embedUrl,
     required this.config,
-    required this.captureScript,
   });
 
   final String embedUrl;
   final ProviderCaptureConfig config;
-  final String captureScript;
 
   @override
   State<_ProviderCaptureDialog> createState() => _ProviderCaptureDialogState();
@@ -152,71 +78,21 @@ class _ProviderCaptureDialog extends StatefulWidget {
 
 class _ProviderCaptureDialogState extends State<_ProviderCaptureDialog> {
   InAppWebViewController? _webViewController;
+  int _sessionId = 0;
   bool _captured = false;
-  bool _autoRestarted = false;
   String _title = '';
   String? _pendingStreamUrl;
 
+  late final String _embedHost = Uri.parse(widget.embedUrl).host;
+
   ProviderCaptureConfig get _config => widget.config;
 
-  Future<void> _injectCaptureHook(InAppWebViewController controller) async {
-    final patterns = jsonEncode(_config.watchFetchPatterns);
-    final source = 'window.__shinden_capture_patterns=$patterns;\n${widget.captureScript}';
-    try {
-      await controller.evaluateJavascript(source: source);
-    } catch (_) {}
-  }
-
-  List<UserScript> _initialUserScripts() {
-    final scripts = <UserScript>[];
-
-    final extra = _config.extraUserScript?.trim();
-    if (extra != null && extra.isNotEmpty) {
-      scripts.add(
-        UserScript(
-          source: extra,
-          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-          forMainFrameOnly: true,
-        ),
+  URLRequest _embedRequest() => URLRequest(
+        url: WebUri(widget.embedUrl),
+        headers: _embedRequestHeaders(widget.embedUrl, _config.userAgent),
       );
-    }
 
-    return scripts;
-  }
-
-  bool _matchesNetworkWatch(String url) {
-    return _config.watchNetworkPatterns.any(url.contains);
-  }
-
-  void _handleCaptureEvent(ProviderCaptureEvent event) {
-    if (_captured) return;
-
-    final custom = _config.onCapture?.call(event);
-    if (custom != null && custom.isNotEmpty) {
-      _finishCapture(custom);
-      return;
-    }
-
-    if (_config.enableDefaultStreamCapture) {
-      _tryDefaultStreamCapture(event.url);
-    }
-  }
-
-  void _onCaptureError(InAppWebViewController controller, WebResourceRequest request, WebResourceError error) {
-    final type = error.type.toString();
-    WebViewDebug.log(
-      'CAPTURE',
-      '$type mainFrame=${request.isForMainFrame} ${request.url}',
-    );
-
-    if (request.isForMainFrame != true || _captured || _autoRestarted) return;
-    if (!type.contains('CONNECT') && !type.contains('REFUSED')) return;
-
-    _autoRestarted = true;
-    Future.microtask(_restartCaptureSession);
-  }
-
-  void _tryDefaultStreamCapture(String url) {
+  void _onStreamUrl(String url) {
     if (_captured || url.isEmpty) return;
 
     final isM3u8 = url.contains('.m3u8');
@@ -240,54 +116,46 @@ class _ProviderCaptureDialogState extends State<_ProviderCaptureDialog> {
     _finishCapture(url);
   }
 
-  void _onJsCaptureMessage(String? raw) {
-    if (raw == null || raw.isEmpty) return;
-
-    Map<String, dynamic> payload;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return;
-      payload = decoded;
-    } catch (_) {
-      return;
+  /// Embed players load on the original host; API calls are fetch/XHR.
+  /// Main-frame hops to ad mirrors (e.g. jnbhi.com/4/...) cause CONNECTION_REFUSED.
+  Future<NavigationActionPolicy> _onNavigation(InAppWebViewController controller, NavigationAction action) async {
+    if (action.isForMainFrame != true) {
+      return NavigationActionPolicy.ALLOW;
     }
 
-    final typeName = payload['type']?.toString() ?? '';
-    final url = payload['url']?.toString() ?? '';
-    if (url.isEmpty) return;
+    final targetHost = action.request.url?.host ?? '';
+    if (targetHost.isEmpty || targetHost == _embedHost) {
+      return NavigationActionPolicy.ALLOW;
+    }
 
-    final type = switch (typeName) {
-      'fetch_request' => ProviderCaptureEventType.fetchRequest,
-      'fetch_response' => ProviderCaptureEventType.fetchResponse,
-      _ => null,
-    };
-    if (type == null) return;
+    WebViewDebug.log('CAPTURE', 'block main-frame redirect ${action.request.url}');
+    return NavigationActionPolicy.CANCEL;
+  }
 
-    _handleCaptureEvent(
-      ProviderCaptureEvent(
-        type: type,
-        url: url,
-        body: payload['body']?.toString(),
-      ),
+  void _onCaptureError(InAppWebViewController controller, WebResourceRequest request, WebResourceError error) {
+    WebViewDebug.log(
+      'CAPTURE',
+      '${error.type} mainFrame=${request.isForMainFrame} ${request.url}',
     );
+
+    if (request.isForMainFrame != true || _captured) return;
+
+    final failedHost = Uri.tryParse(request.url.toString())?.host ?? '';
+    if (failedHost.isEmpty || failedHost == _embedHost) return;
+
+    // Landed on a failed ad/mirror redirect — return to the embed page.
+    controller.loadUrl(urlRequest: _embedRequest());
   }
 
-  void _onNetworkRequest(String url) {
-    if (_captured || url.isEmpty) return;
-
-    if (_matchesNetworkWatch(url)) {
-      _handleCaptureEvent(ProviderCaptureEvent(type: ProviderCaptureEventType.networkRequest, url: url));
-      return;
-    }
-
-    if (_config.enableDefaultStreamCapture) {
-      _tryDefaultStreamCapture(url);
-    }
-  }
-
-  void _restartCaptureSession() {
+  void _retry() {
     if (!mounted) return;
-    Navigator.of(context).pop(const _ProviderCaptureRestart());
+    setState(() {
+      _captured = false;
+      _pendingStreamUrl = null;
+      _title = '';
+      _webViewController = null;
+      _sessionId++;
+    });
   }
 
   Future<void> _finishCapture(String url, {String? title}) async {
@@ -318,15 +186,9 @@ class _ProviderCaptureDialogState extends State<_ProviderCaptureDialog> {
       backgroundColor: const Color(0xff181818),
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _config.dialogTitle,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ),
-        ],
+      title: Text(
+        _config.dialogTitle,
+        style: const TextStyle(color: Colors.white, fontSize: 18),
       ),
       content: SizedBox(
         width: screen.width,
@@ -343,40 +205,30 @@ class _ProviderCaptureDialogState extends State<_ProviderCaptureDialog> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: InAppWebView(
-                  initialUrlRequest: URLRequest(
-                    url: WebUri(widget.embedUrl),
-                    headers: _embedRequestHeaders(widget.embedUrl, _config.userAgent),
-                  ),
+                  key: ValueKey('capture-$_sessionId'),
+                  initialUrlRequest: _embedRequest(),
                   initialSettings: _captureWebViewSettings(_config.userAgent),
-                  initialUserScripts: UnmodifiableListView(_initialUserScripts()),
+                  initialUserScripts: UnmodifiableListView([]),
                   onWebViewCreated: (controller) {
                     _webViewController = controller;
-                    controller.addJavaScriptHandler(
-                      handlerName: 'shinden_capture',
-                      callback: (args) {
-                        if (args.isEmpty) return;
-                        _onJsCaptureMessage(args[0]?.toString());
-                      },
-                    );
                   },
                   onLoadStart: (_, uri) {
                     if (uri == null) return;
                     WebViewDebug.log('CAPTURE', 'start $uri');
                   },
-                  onLoadStop: (controller, uri) {
+                  onLoadStop: (_, uri) {
                     if (uri == null) return;
                     WebViewDebug.log('CAPTURE', 'stop $uri');
-                    _injectCaptureHook(controller);
                   },
                   onTitleChanged: (_, title) {
                     final trimmed = title?.trim() ?? '';
                     if (trimmed.isNotEmpty) _title = trimmed;
                   },
-                  onReceivedError: _onCaptureError,
-                  shouldInterceptRequest: (_, request) async {
-                    _onNetworkRequest(request.url.toString());
-                    return null;
+                  onLoadResource: (_, resource) {
+                    _onStreamUrl(resource.url.toString());
                   },
+                  shouldOverrideUrlLoading: _onNavigation,
+                  onReceivedError: _onCaptureError,
                 ),
               ),
             ),
@@ -385,7 +237,7 @@ class _ProviderCaptureDialogState extends State<_ProviderCaptureDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _restartCaptureSession,
+          onPressed: _retry,
           child: const Text('Spróbuj ponownie', style: TextStyle(color: Colors.white)),
         ),
         TextButton(

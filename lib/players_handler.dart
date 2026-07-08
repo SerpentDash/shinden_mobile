@@ -1224,81 +1224,6 @@ void bysesukiorPlayer(controller, url, context, mode) async {
     return;
   }
 
-  Uint8List decodeB64Url(String input) {
-    var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
-    final padding = (4 - normalized.length % 4) % 4;
-    if (padding > 0) normalized = normalized.padRight(normalized.length + padding, '=');
-    return Uint8List.fromList(base64.decode(normalized));
-  }
-
-  Uint8List decryptAes(Uint8List key, Uint8List iv, Uint8List encrypted) {
-    final cipher = pc.GCMBlockCipher(pc.AESEngine());
-    cipher.init(false, pc.AEADParameters(pc.KeyParameter(key), 128, iv, Uint8List(0)));
-    final output = Uint8List(cipher.getOutputSize(encrypted.length));
-    final len1 = cipher.processBytes(encrypted, 0, encrypted.length, output, 0);
-    final len2 = cipher.doFinal(output, len1);
-    return output.sublist(0, len1 + len2);
-  }
-
-  String? parseCapture(ProviderCaptureEvent event) {
-    if (event.type != ProviderCaptureEventType.fetchResponse || !event.url.contains('embed/playback')) {
-      return null;
-    }
-
-    final body = event.body;
-    if (body == null || body.isEmpty) return null;
-
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is! Map) return null;
-
-      final playbackData = decoded['playback'];
-      if (playbackData is! Map) return null;
-
-      final keyParts = (playbackData['key_parts'] as List?)?.whereType<String>().toList() ?? const <String>[];
-      if (keyParts.isEmpty) return null;
-
-      final keyBytes = Uint8List.fromList(keyParts.expand(decodeB64Url).toList());
-      Map<String, dynamic>? decrypted;
-
-      for (final candidate in [
-        {'iv': playbackData['iv'], 'payload': playbackData['payload']},
-        {'iv': playbackData['iv2'], 'payload': playbackData['payload2']},
-      ]) {
-        final ivValue = candidate['iv'];
-        final payloadValue = candidate['payload'];
-        if (ivValue is! String || payloadValue is! String) continue;
-
-        try {
-          final plain = decryptAes(keyBytes, decodeB64Url(ivValue), decodeB64Url(payloadValue));
-          final parsed = jsonDecode(utf8.decode(plain));
-          if (parsed is Map<String, dynamic>) {
-            decrypted = parsed;
-            break;
-          }
-        } catch (_) {}
-      }
-
-      if (decrypted == null) return null;
-
-      final sources = (decrypted['sources'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
-      String? directLink;
-      var bestBitrate = -1;
-      for (final source in sources) {
-        final sourceUrl = source['url']?.toString();
-        if (sourceUrl == null || sourceUrl.isEmpty) continue;
-        final bitrate = int.tryParse(source['bitrate_kbps']?.toString() ?? '') ?? 0;
-        if (directLink == null || bitrate > bestBitrate) {
-          directLink = sourceUrl;
-          bestBitrate = bitrate;
-        }
-      }
-      return directLink;
-    } catch (_) {
-      return null;
-    }
-  }
-
   try {
     final capture = await showProviderCaptureDialog(
       context,
@@ -1306,14 +1231,11 @@ void bysesukiorPlayer(controller, url, context, mode) async {
       config: ProviderCaptureConfig(
         dialogTitle: 'Weryfikacja playera',
         hint: 'Naciśnij play, aby ukończyć weryfikację.',
-        watchFetchPatterns: const ['embed/playback'],
-        enableDefaultStreamCapture: true,
         fallbackTitle: (embedUrl) {
           final uri = Uri.parse(embedUrl);
           final code = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
           return code.isNotEmpty ? 'Video $code' : 'Video from ${uri.host}';
         },
-        onCapture: parseCapture,
       ),
     );
 
