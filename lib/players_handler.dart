@@ -30,7 +30,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
-  MapEntry(['vidara', 'vidaarax', 'vidavaca'], vidaraPlayer),
+  MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
 ];
 
 void handleLink(controller, url, mode, [context]) async {
