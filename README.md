@@ -46,3 +46,7 @@ App allows users to watch videos from multiple providers (in highest available q
 ## Download
 
 [Releases](https://github.com/SerpentDash/shinden_mobile/releases)
+
+
+Want to be notified when a new version is released? 
+[Add to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/SerpentDash/shinden_mobile)
