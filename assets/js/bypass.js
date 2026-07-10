@@ -55,9 +55,6 @@
         'streamup'
     ]; // 'streamsb', 'hqq'
 
-    // Providers allowed to use Seal app
-    const sealAllowlist = ['lulustream'];
-
     function overrideButtons(source) {
         const key = source.split(/_Storage\.basic = '/)[1].split("';")[0];
         const elements = document.getElementsByClassName("ep-buttons");
@@ -94,17 +91,8 @@
             const data = clone.getAttribute("data-episode");
             const providerName = elements[i].parentElement.firstElementChild.innerText.toLowerCase();
 
-            // Determine whether this provider is allowed to use Seal
-            const showSeal = sealAllowlist.some(v => providerName.includes(v));
-
             let newElement;
-            if (showSeal) {
-                // For Seal-allowed providers show ONLY 'Pokaż' and 'Seal'
-                newElement = createDropdown(['Pokaż', 'Seal']);
-                const buttons = newElement.children[1].children;
-                buttons[0].onclick = () => handleClick(i, data, '', buttons[0].innerText);
-                buttons[1].onclick = () => handleClick(i, data, 'seal', buttons[1].innerText);
-            } else if (providers.some(provider => providerName === provider)) {
+            if (providers.some(provider => providerName === provider)) {
                 // For supported providers, build dropdown with stream/download/show
                 newElement = createDropdown(['Stream', 'Pobierz', 'Pokaż']);
                 const buttons = newElement.children[1].children;
@@ -162,9 +150,6 @@
         // Handle link based on mode - empty mode opens system browser
         if (current_mode === '') {
             window.flutter_inappwebview.callHandler('open_browser', link);
-        } else if (current_mode === 'seal') {
-            // Special mode for Seal app
-            window.flutter_inappwebview.callHandler('handle_link', link, 'seal');
         } else {
             window.flutter_inappwebview.callHandler('handle_link', link, current_mode);
         }

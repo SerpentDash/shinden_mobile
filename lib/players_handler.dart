@@ -33,16 +33,15 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
 ];
 
+bool isVidaraUrl(Uri uri) {
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  return segments.length >= 2 && segments[segments.length - 2] == 'e';
+}
+
 void handleLink(controller, url, mode, [context]) async {
   // Handle direct browser opening
   if (mode == 'direct') {
     await AndroidIntent(action: 'action_view', data: url).launch();
-    return;
-  }
-
-  // Handle downloading videos using Seal app
-  if (mode == 'seal') {
-    sealHandler(controller, url, context, mode);
     return;
   }
 
@@ -57,51 +56,13 @@ void handleLink(controller, url, mode, [context]) async {
     }
   }
 
+  if (isVidaraUrl(link)) {
+    vidaraPlayer(controller, url, context, mode);
+    return;
+  }
+
   // No match found, open in browser
   AndroidIntent(action: 'action_view', data: url).launch();
-}
-
-void sealHandler(controller, url, context, mode) async {
-  if (context == null) return;
-  // TODO: Can you pass custom commanmds for yt-dlp? (like no ssl checking)
-  try {
-    await AndroidIntent(
-      action: 'android.intent.action.SEND',
-      type: 'text/plain',
-      package: 'com.junkfood.seal',
-      componentName: 'com.junkfood.seal.QuickDownloadActivity',
-      arguments: {'android.intent.extra.TEXT': url},
-    ).launch().catchError((error) {
-      // If Seal is not installed, show a message to the user
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            title: Text('Seal app is not installed'),
-            content: Text('You can find it here:\nhttps://github.com/JunkFood02/Seal'),
-            actions: [
-              TextButton(
-                child: Text('Get Seal'),
-                onPressed: () {
-                  launchUrl(Uri.parse('https://github.com/JunkFood02/Seal'));
-                  Navigator.of(dialogContext).pop();
-                },
-              ),
-              TextButton(
-                child: Text('Close'),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                },
-              ),
-            ],
-          );
-        },
-      );
-    });
-  } catch (e) {
-    log("Error opening Seal app: $e");
-    controller.evaluateJavascript(source: 'alert(`Failed to open Seal app: ${e.toString()}`)');
-  }
 }
 
 void cdaPlayer(controller, url, context, mode) async {
