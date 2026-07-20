@@ -75,13 +75,15 @@ class NotificationController {
 
     await AwesomeNotifications().requestPermissionToSendNotifications();
 
-    AwesomeNotifications().initialize(
+    await AwesomeNotifications().initialize(
       'resource://drawable/outline_file_download',
       [
         NotificationChannel(
           channelKey: 'downloader',
           channelName: 'Downloader',
           channelDescription: 'Display download progress',
+          importance: NotificationImportance.High,
+          playSound: false,
         ),
       ],
     );
