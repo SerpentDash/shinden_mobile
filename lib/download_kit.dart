@@ -49,6 +49,9 @@ void process(controller, url, fileName, mode, {Map<String, String>? headers}) as
     case 'download':
       download(url, fileName, headers: headers ?? {});
       break;
+    case 'seal':
+      sealHandler(controller, url);
+      break;
     default:
       break;
   }
@@ -261,7 +264,7 @@ void playlistTask(dynamic params) async {
   int id = params[1]; // will be added by NotificationController
   String url = params[2];
   String title = params[3];
-  Map<String, String> headers = params[4];
+  Map<String, String> headers = Map<String, String>.from(params[4] as Map);
 
   sendPort.send({
     'content': NotificationContent(
@@ -272,79 +275,92 @@ void playlistTask(dynamic params) async {
     ),
   });
 
-  // Get highest quality url from master file
-
-  final highestQualityUrl = url.contains("master") ? await getHighestQualityUrl(Uri.parse(url), headers: headers) : url;
-  if (highestQualityUrl == null) {
-    sendPort.send({
-      'content': NotificationContent(
-        id: id,
-        channelKey: 'downloader',
-        title: "Error: File does not exist",
-      ),
-    });
-    log("Error: File does not exist");
-    return;
-  }
-
-  final media = await http.get(Uri.parse(highestQualityUrl), headers: headers);
-  final mediaPlaylist = await HlsPlaylistParser.create().parseString(Uri.parse(highestQualityUrl), media.body);
-  mediaPlaylist as HlsMediaPlaylist;
-
-  final segments = mediaPlaylist.segments.map((segment) => segment.url).toList();
-
-  final sink = File('$savePath/$title.mp4').openWrite();
-
-  final throttler = Throttler(milliseconds: 2000);
-
   try {
-    bool useFullPath = false;
-    String urlPart = url;
-
-    // Check if 'segment' is url or just part of url
-    Uri segmentUri = Uri.parse(segments.first!);
-    if (!segmentUri.hasAbsolutePath) {
-      // Remove last part of base url to use as base for downloading segments
-      List<String> urlSegments = url.split('/');
-      urlSegments.removeLast();
-      urlPart = urlSegments.join('/');
-
-      useFullPath = true;
+    final highestQualityUrl = url.contains("master") ? await getHighestQualityUrl(Uri.parse(url), headers: headers) : url;
+    if (highestQualityUrl == null) {
+      sendPort.send({
+        'content': NotificationContent(
+          id: id,
+          channelKey: 'downloader',
+          title: "Error: File does not exist",
+        ),
+      });
+      log("Error: File does not exist");
+      return;
     }
 
-    // Download each segment and save to file
-    for (final segment in segments) {
-      final segmentData = await http.readBytes(Uri.parse(useFullPath ? "$urlPart/${segment!}" : segment!), headers: headers);
-      sink.add(segmentData);
-      throttler(
-        () => sendPort.send({
-          'content': NotificationContent(
+    final mediaPlaylistUri = Uri.parse(highestQualityUrl);
+    final media = await http.get(mediaPlaylistUri, headers: headers);
+    if (media.statusCode != 200) {
+      sendPort.send({
+        'content': NotificationContent(
+          id: id,
+          channelKey: 'downloader',
+          title: "Error: Could not load playlist (${media.statusCode})",
+        ),
+      });
+      return;
+    }
+
+    final mediaPlaylist = await HlsPlaylistParser.create().parseString(mediaPlaylistUri, media.body);
+    mediaPlaylist as HlsMediaPlaylist;
+
+    final segments = mediaPlaylist.segments.map((segment) => segment.url).whereType<String>().toList();
+    if (segments.isEmpty) {
+      sendPort.send({
+        'content': NotificationContent(
+          id: id,
+          channelKey: 'downloader',
+          title: "Error: Playlist has no segments",
+        ),
+      });
+      return;
+    }
+
+    final sink = File('$savePath/$title.mp4').openWrite();
+    final throttler = Throttler(milliseconds: 2000);
+
+    try {
+      for (var i = 0; i < segments.length; i++) {
+        final segmentUri = mediaPlaylistUri.resolve(segments[i]);
+        final segmentData = await http.readBytes(segmentUri, headers: headers);
+        sink.add(segmentData);
+
+        final progress = ((i + 1) / segments.length) * 100;
+        throttler(
+          () => sendPort.send({
+            'content': NotificationContent(
               id: id,
               channelKey: 'downloader',
               title: '$title.mp4',
-              body: "Segment: ${segments.indexOf(segment) + 1} / ${segments.length}",
-              progress: ((segments.indexOf(segment) + 1) / segments.length) * 100,
+              body: "Segment: ${i + 1} / ${segments.length}",
+              progress: progress,
               notificationLayout: NotificationLayout.ProgressBar,
               locked: true,
-              payload: {"isolate": "$id", "fileName": '$title.mp4'}),
-          'actionButtons': [
-            NotificationActionButton(
-              key: 'cancel',
-              label: 'Cancel',
+              payload: {"isolate": "$id", "fileName": '$title.mp4'},
             ),
-          ],
-        }),
-      );
-      log('Progress: ${segments.indexOf(segment) + 1} / ${segments.length}');
+            'actionButtons': [
+              NotificationActionButton(
+                key: 'cancel',
+                label: 'Cancel',
+              ),
+            ],
+          }),
+        );
+        log('Progress: ${i + 1} / ${segments.length}');
+      }
+      sendPort.send({
+        'content': NotificationContent(
+          id: id,
+          channelKey: 'downloader',
+          title: '$title.mp4',
+          body: "Download completed.",
+        ),
+      });
+    } finally {
+      await sink.flush();
+      await sink.close();
     }
-    sendPort.send({
-      'content': NotificationContent(
-        id: id,
-        channelKey: 'downloader',
-        title: '$title.mp4',
-        body: "Download completed.",
-      ),
-    });
   } catch (e) {
     sendPort.send({
       'content': NotificationContent(
@@ -354,9 +370,6 @@ void playlistTask(dynamic params) async {
       ),
     });
     log('Error: $e');
-  } finally {
-    await sink.flush();
-    await sink.close();
   }
 }
 
@@ -367,9 +380,10 @@ Future<String?> getHighestQualityUrl(Uri masterUrl, {headers = const {}}) async 
 
   final masterPlayList = await HlsPlaylistParser.create().parseString(masterUrl, master.body);
   masterPlayList as HlsMasterPlaylist;
-  final sortedVariants = masterPlayList.variants..sort((a, b) => b.format.bitrate!.compareTo(a.format.bitrate!));
-  final highestQualityVariant = sortedVariants.first;
-  return highestQualityVariant.url.toString();
+  if (masterPlayList.variants.isEmpty) return null;
+
+  final sortedVariants = masterPlayList.variants..sort((a, b) => (b.format.bitrate ?? 0).compareTo(a.format.bitrate ?? 0));
+  return masterUrl.resolve(sortedVariants.first.url.toString()).toString();
 }
 
 // This one needs more care that other providers...

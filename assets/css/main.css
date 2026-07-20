@@ -3,14 +3,16 @@
 ::selection { color: black; background: rgb(201, 201, 201) }
 .dropdown {position: relative; display: inline-block;}
 .dropdown.button {display: none;}
-.dropdown-content {display: none; position: absolute; z-index: 9999; width: 100%;}
-.dropdown-content a { display: block; height: 1.55rem; line-height: 1.55rem;}
-.dropdown-content a:nth-child(odd) {background-color: rgb(36, 36, 36) !important;}
-.dropdown-content a:nth-child(even) {background-color: #2f2f2f !important;}
-.dropdown-content a:hover { background-color: #303030; }
-.dropdown-content.show a { box-shadow: white 0px 0px 10px; }
-.dropdown:hover .dropdown-content.show { display: block;}
+.dropdown-content {display: none; position: absolute; z-index: 9999; width: 100%; box-sizing: border-box;}
+.dropdown-content.show {display: block; background: #1e1e1e; border: 1px solid #555; border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);}
 .dropdown > .button, .ep-buttons > .button {height: 1rem; line-height: 1rem; border-radius: 6px;}
+.ep-buttons .dropdown-content a.button {display: flex; align-items: center; justify-content: center; width: 100% !important; box-sizing: border-box !important; height: 2.4rem !important; margin: 0 0 3px !important; padding: 0 0.4em !important; border-radius: 6px !important; background: #424242 !important;}
+.ep-buttons .dropdown-content a.button:last-child {margin-bottom: 0 !important;}
+.ep-buttons .dropdown-content a.button:hover {background: #303030 !important;}
+.ep-buttons .download-group {margin: 0 0 3px;}
+.ep-buttons .download-group:not(.open) .download-submenu {display: none;}
+.ep-buttons .download-group.open .download-submenu {display: flex; flex-direction: column; gap: 3px; margin-top: 3px; padding: 3px; background: #2a2a2a; border: 1px solid #5a5a5a; border-radius: 6px;}
+.ep-buttons .download-submenu .button {height: 2.1rem !important; margin: 0 !important; background: #383838 !important; font-size: 0.95em;}
 .button.selected { box-shadow: white 0px 0px 10px; }
 .ipprtcnt {display:none}
 .logo-title > img{ display: none; }

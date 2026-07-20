@@ -27,6 +27,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['rumble'], rumblePlayer),
   MapEntry(['streamwish', 'playerwish'], streamwishPlayer),
   MapEntry(['vidhide', 'vidhidehub'], videhidePlayer),
+  MapEntry(['morencius'], morenciusPlayer),
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
@@ -61,8 +62,59 @@ void handleLink(controller, url, mode, [context]) async {
     return;
   }
 
+  if (mode == 'seal') {
+    sealHandler(controller, url, context, mode);
+    return;
+  }
+
   // No match found, open in browser
   AndroidIntent(action: 'action_view', data: url).launch();
+}
+
+void sealHandler(controller, url, [context, mode]) async {
+  try {
+    await AndroidIntent(
+      action: 'android.intent.action.SEND',
+      type: 'text/plain',
+      package: 'com.junkfood.seal',
+      componentName: 'com.junkfood.seal.QuickDownloadActivity',
+      arguments: {'android.intent.extra.TEXT': url},
+    ).launch().catchError((error) {
+      if (context != null && context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: Text('Seal app is not installed'),
+              content: Text('You can find it here:\nhttps://github.com/JunkFood02/Seal'),
+              actions: [
+                TextButton(
+                  child: Text('Get Seal'),
+                  onPressed: () {
+                    launchUrl(Uri.parse('https://github.com/JunkFood02/Seal'));
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                TextButton(
+                  child: Text('Close'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      } else {
+        controller.evaluateJavascript(
+          source: 'alert(`Seal app is not installed.\\nhttps://github.com/JunkFood02/Seal`)',
+        );
+      }
+    });
+  } catch (e) {
+    log('Error opening Seal app: $e');
+    controller.evaluateJavascript(source: 'alert(`Failed to open Seal app: ${e.toString()}`)');
+  }
 }
 
 void cdaPlayer(controller, url, context, mode) async {
@@ -232,6 +284,9 @@ void mp4uploadPlayer(controller, url, context, mode) async {
     case 'download':
       NotificationController.startIsolate(mp4uploadTask, [directLink, title]);
       break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
+      break;
     default:
       break;
   }
@@ -290,6 +345,9 @@ void doodPlayer(controller, url, context, mode) async {
       break;
     case 'download':
       download(directLink, "$title.mp4", headers: {"referer": "$url"});
+      break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
       break;
     default:
       break;
@@ -365,6 +423,9 @@ void supervideoPlayer(controller, url, context, mode) async {
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
+      break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
       break;
     default:
       break;
@@ -491,6 +552,9 @@ void youruploadPlayer(controller, url, context, mode) async {
     case 'download':
       download(directLink, title, headers: {"referer": urlWithoutToken});
       break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
+      break;
     default:
       break;
   }
@@ -521,6 +585,9 @@ void aparatPlayer(controller, url, context, mode) async {
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
+      break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
       break;
     default:
       break;
@@ -592,6 +659,9 @@ void defaultPlayer(controller, url, context, mode) async {
       break;
     case 'download':
       NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
+      break;
+    case 'seal':
+      sealHandler(controller, directLink, context, mode);
       break;
     default:
       break;
@@ -673,6 +743,9 @@ void megaPlayer(controller, url, context, mode) async {
       break;
     case 'download':
       NotificationController.startIsolate(megaTask, [url]);
+      break;
+    case 'seal':
+      sealHandler(controller, url, context, mode);
       break;
     default:
       break;
@@ -1038,6 +1111,106 @@ void videhidePlayer(controller, url, context, mode) async {
   }
 }
 
+/// Morencius 
+void morenciusPlayer(controller, url, context, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': url,
+    };
+
+    final response = await http.get(uri, headers: headers);
+    if (response.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not load player page`)');
+      return;
+    }
+
+    final html = response.body;
+
+    final scriptStart = html.indexOf('eval(function(p,a,c,k,e,d)');
+    if (scriptStart == -1) {
+      controller.evaluateJavascript(source: 'alert(`Could not find player script`)');
+      return;
+    }
+
+    final scriptEnd = html.indexOf('</script>', scriptStart);
+    if (scriptEnd == -1) {
+      controller.evaluateJavascript(source: 'alert(`Could not find player script`)');
+      return;
+    }
+
+    final evalCode = html.substring(scriptStart, scriptEnd);
+    final evalMatch = RegExp(
+      r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'\)\)",
+      dotAll: true,
+    ).firstMatch(evalCode);
+
+    if (evalMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract player data`)');
+      return;
+    }
+
+    final deobfuscated = _unpack(
+      evalMatch.group(1)!,
+      int.parse(evalMatch.group(2)!),
+      int.parse(evalMatch.group(3)!),
+      evalMatch.group(4)!.split('|'),
+    );
+
+    final linksBlock = RegExp(r'links=\{([^}]+)\}').firstMatch(deobfuscated)?.group(1);
+    if (linksBlock == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video links`)');
+      return;
+    }
+
+    final links = <String, String>{};
+    for (final m in RegExp(r'"(hls\d*)":"([^"]+)"').allMatches(linksBlock)) {
+      links[m.group(1)!] = m.group(2)!.replaceAll(r'\/', '/');
+    }
+
+    String? directLink;
+    for (final key in const ['hls4', 'hls3', 'hls2']) {
+      if (links[key]?.isNotEmpty == true) {
+        directLink = links[key];
+        break;
+      }
+    }
+    if (directLink == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+    if (directLink.startsWith('/')) {
+      directLink = '${uri.scheme}://${uri.host}$directLink';
+    }
+
+    final title = RegExp(
+          r'<meta\s+name="description"\s+content="([^"]+)"',
+          caseSensitive: false,
+        ).firstMatch(html)?.group(1)?.trim() ??
+        (uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'morencius_video');
+
+    switch (mode) {
+      case 'download':
+        NotificationController.startIsolate(playlistTask, [directLink, title, headers]);
+        break;
+      case 'seal':
+        sealHandler(controller, directLink, context, mode);
+        break;
+      case 'stream':
+        // External players cannot send Referer; may fail for some mirrors.
+        process(controller, directLink, title, mode);
+        break;
+      default:
+        process(controller, directLink, title, mode);
+        break;
+    }
+  } catch (e) {
+    log('Error in morenciusPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
 void streamhlsPlayer(controller, url, context, mode) async {
   try {
     final Map<String, String> headers = {
@@ -1261,7 +1434,16 @@ void vidaraPlayer(controller, url, context, mode) async {
       title = apiTitle.trim();
     }
 
-    process(controller, directLink, title, mode);
+    final downloadHeaders = <String, String>{
+      'User-Agent': headers['User-Agent']!,
+      'Referer': url,
+    };
+
+    if (mode == 'download') {
+      NotificationController.startIsolate(playlistTask, [directLink, title, downloadHeaders]);
+    } else {
+      process(controller, directLink, title, mode, headers: downloadHeaders);
+    }
   } catch (e) {
     log('Error in vidaraPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');

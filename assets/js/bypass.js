@@ -23,6 +23,13 @@
         }).observe(document, { childList: true, subtree: true });
     }
 
+    document.addEventListener('click', closeMenus);
+
+    function closeMenus() {
+        document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
+        document.querySelectorAll('.download-group.open').forEach(g => g.classList.remove('open'));
+    }
+
     async function getReq(url, callback = null) {
         await fetch(url, { credentials: 'include' }).then(async r => callback && callback(await r.text()));
     }
@@ -59,7 +66,6 @@
         const key = source.split(/_Storage\.basic = '/)[1].split("';")[0];
         const elements = document.getElementsByClassName("ep-buttons");
 
-        // Set correct onclick to button
         const handleClick = (i, data, mode, buttonText) => {
             const btn = elements[i].querySelector('.button');
             selectButton(btn);
@@ -74,17 +80,30 @@
             countdown([data, key], 5);
         };
 
-        // Helper to create dropdown with specified buttons
-        const createDropdown = (buttonTexts) => {
+        const createDropdown = (innerHtml) => {
             const dropdown = document.createElement('div');
             dropdown.classList.add('dropdown');
-            const content = buttonTexts.map(text => `<a class='button'>${text}</a>`).join('');
-            dropdown.innerHTML = `<a class="button">Wybierz<i class='fa fa-chevron-down'></i></a><div class="dropdown-content">${content}</div>`;
-            dropdown.children[0].onclick = (e) => e.target.nextSibling.classList.add('show');
+            dropdown.innerHTML =
+                `<a class="button">Wybierz<i class='fa fa-chevron-down'></i></a>` +
+                `<div class="dropdown-content">${innerHtml}</div>`;
+            dropdown.addEventListener('click', e => e.stopPropagation());
+
+            const menu = dropdown.children[1];
+            dropdown.children[0].onclick = () => {
+                const wasOpen = menu.classList.contains('show');
+                closeMenus();
+                if (!wasOpen) menu.classList.add('show');
+            };
+
+            const group = menu.querySelector('.download-group');
+            if (group) {
+                group.querySelector('[data-toggle="download"]').onclick = () => {
+                    group.classList.toggle('open');
+                };
+            }
             return dropdown;
         };
 
-        // clone template and assign correct values / events
         for (let i = 1; i < elements.length; i++) {
             const clone = elements[i].firstChild.cloneNode(true);
             elements[i].replaceChild(clone, elements[i].firstChild);
@@ -93,22 +112,24 @@
 
             let newElement;
             if (providers.some(provider => providerName === provider)) {
-                // For supported providers, build dropdown with stream/download/show
-                newElement = createDropdown(['Stream', 'Pobierz', 'Pokaż']);
-                const buttons = newElement.children[1].children;
-                buttons[0].onclick = () => handleClick(i, data, 'stream', buttons[0].innerText);
-                buttons[1].onclick = () => handleClick(i, data, 'download', buttons[1].innerText);
-                buttons[2].onclick = () => handleClick(i, data, '', buttons[2].innerText);
+                newElement = createDropdown(
+                    `<a class="button" data-mode="stream">Stream</a>` +
+                    `<div class="download-group">` +
+                    `<a class="button" data-toggle="download">Pobierz<i class='fa fa-chevron-down'></i></a>` +
+                    `<div class="download-submenu">` +
+                    `<a class="button" data-mode="download">W aplikacji</a>` +
+                    `<a class="button" data-mode="seal">Seal</a>` +
+                    `</div></div>` +
+                    `<a class="button" data-mode="">Pokaż</a>`
+                );
+                newElement.querySelectorAll('[data-mode]').forEach(btn => {
+                    btn.onclick = () => handleClick(i, data, btn.dataset.mode, btn.innerText);
+                });
             } else {
-                // For unsupported providers, show default 'Pokaż' button (will open external browser app)
-                newElement = document.createElement('a');
-                newElement.innerText = 'Pokaż';
-                newElement.classList.add('button');
-                newElement.dataset.old = '';
-                newElement.onclick = () => {
-                    selectButton(newElement);
-                    getPlayer(data);
-                };
+                newElement = createDropdown(`<a class="button">Seal</a><a class="button">Pokaż</a>`);
+                const buttons = newElement.children[1].children;
+                buttons[0].onclick = () => handleClick(i, data, 'seal', buttons[0].innerText);
+                buttons[1].onclick = () => handleClick(i, data, '', buttons[1].innerText);
             }
 
             clone.after(newElement);
@@ -116,15 +137,13 @@
         }
     }
 
-    // select new button, hide old selected buttons
     function selectButton(btn) {
-        //window.flutter_inappwebview.callHandler('mode_clear');
         btn?.classList.add('selected');
         document.querySelectorAll('.button.selected').forEach(el => {
             el.innerHTML = (el.dataset.old != null ? 'Pokaż' : "Wybierz <i class='fa fa-chevron-down'></i>");
             if (el != btn) el.classList.remove('selected');
-            el.nextSibling.classList.remove('show');
         });
+        closeMenus();
     }
 
     let container, timer;
@@ -139,22 +158,18 @@
     }
 
     let current_mode = '';
-    // Set player with small changes
     async function replace(player) {
-        // Get link to video
         let playerDOM = new DOMParser().parseFromString(player, 'text/html');
         let link = playerDOM.getElementsByTagName('iframe')[0] || playerDOM.querySelector('.button-player');
         link = link.src || link.href;
         console.log(link);
 
-        // Handle link based on mode - empty mode opens system browser
         if (current_mode === '') {
             window.flutter_inappwebview.callHandler('open_browser', link);
         } else {
             window.flutter_inappwebview.callHandler('handle_link', link, current_mode);
         }
-        
-        // Clean up UI
+
         setTimeout(() => {
             selectButton(null);
             container.innerHTML = "";
