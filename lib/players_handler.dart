@@ -35,6 +35,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['playmate'], playmatePlayer),
   MapEntry(['uqload'], uqloadPlayer),
   MapEntry(['flyf.lat'], flyfPlayer),
+  MapEntry(['sharevideo'], sharevideoPlayer),
 ];
 
 bool isVidaraUrl(Uri uri) {
@@ -1486,6 +1487,92 @@ void flyfPlayer(controller, url, context, mode) async {
     }
   } catch (e) {
     log('Error in flyfPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void sharevideoPlayer(controller, url, context, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    if (uri.pathSegments.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract video ID from URL`)');
+      return;
+    }
+
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+    };
+
+    final apiResponse = await http.get(
+      Uri.parse('${uri.scheme}://${uri.host}/api/v1/videos/${uri.pathSegments.last}'),
+      headers: headers,
+    );
+
+    if (apiResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Video does not exist or is unavailable`)');
+      return;
+    }
+
+    final data = jsonDecode(apiResponse.body) as Map<String, dynamic>;
+    final title = data['name']?.toString().trim() ?? 'Video';
+
+    final playlists = data['streamingPlaylists'] as List<dynamic>?;
+    if (playlists == null || playlists.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No streaming source found`)');
+      return;
+    }
+
+    final playlist = playlists.first as Map<String, dynamic>;
+    final masterUrl = playlist['playlistUrl']?.toString();
+    final files = playlist['files'] as List<dynamic>? ?? [];
+
+    Map<String, dynamic>? bestFile;
+    for (final file in files) {
+      if (file is! Map<String, dynamic>) continue;
+      final currentRes = (file['resolution'] as Map<String, dynamic>?)?['id'] as int? ?? 0;
+      final bestRes = (bestFile?['resolution'] as Map<String, dynamic>?)?['id'] as int? ?? -1;
+      if (currentRes > bestRes) bestFile = file;
+    }
+
+    final qualityLabel = (bestFile?['resolution'] as Map<String, dynamic>?)?['label']?.toString();
+    final formattedTitle = qualityLabel != null ? '$title [$qualityLabel]' : title;
+    final hlsUrl = masterUrl ?? bestFile?['playlistUrl']?.toString();
+
+    switch (mode) {
+      case 'download':
+        final downloadUrl = bestFile?['fileDownloadUrl']?.toString();
+        if (downloadUrl != null && downloadUrl.isNotEmpty) {
+          download(downloadUrl, '$formattedTitle.mp4', headers: headers);
+          break;
+        }
+        if (hlsUrl != null && hlsUrl.isNotEmpty) {
+          NotificationController.startIsolate(playlistTask, [hlsUrl, formattedTitle, headers]);
+          break;
+        }
+        controller.evaluateJavascript(source: 'alert(`No download source found`)');
+        break;
+      case 'stream':
+        if (hlsUrl == null || hlsUrl.isEmpty) {
+          controller.evaluateJavascript(source: 'alert(`No streaming source found`)');
+          return;
+        }
+        await AndroidIntent(
+          action: 'action_view',
+          type: 'application/vnd.apple.mpegurl',
+          data: hlsUrl,
+          arguments: {'title': title},
+        ).launch();
+        break;
+      case 'seal':
+        if (hlsUrl == null || hlsUrl.isEmpty) {
+          controller.evaluateJavascript(source: 'alert(`No streaming source found`)');
+          return;
+        }
+        sealHandler(controller, hlsUrl, context, mode);
+        break;
+    }
+  } catch (e) {
+    log('Error in sharevideoPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
