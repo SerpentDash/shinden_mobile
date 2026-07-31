@@ -355,33 +355,66 @@ void doodPlayer(controller, url, context, mode) async {
 }
 
 void dailymotionPlayer(controller, url, context, mode) async {
-  RegExp regExp = RegExp(r'\/video\/([^?/]+)');
-  final id = regExp.firstMatch(url)!.group(1);
+  try {
+    final id = _extractDailymotionId(url);
+    if (id == null) {
+      controller.evaluateJavascript(source: 'alert(`Invalid Dailymotion link`)');
+      return;
+    }
 
-  var jsonResponse = await http.get(
-    Uri.parse("https://www.dailymotion.com/player/metadata/video/$id"),
-    headers: {"Referer": "https://www.dailymotion.com/"},
-  );
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': 'https://geo.dailymotion.com/',
+    };
 
-  Map<String, dynamic> json = jsonDecode(jsonResponse.body);
+    final response = await http.get(
+      Uri.parse('https://www.dailymotion.com/player/metadata/video/$id'),
+      headers: headers,
+    );
 
-  if (json['error'] != null) {
-    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
-    return;
+    if (response.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not load video metadata (${response.statusCode})`)');
+      return;
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['error'] != null) {
+      controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+      return;
+    }
+
+    final masterUrl = pick(json, 'qualities', 'auto', 0, 'url').asStringOrNull();
+    if (masterUrl == null || masterUrl.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No stream available for this video`)');
+      return;
+    }
+
+    final title = json['title'];
+    if (mode == 'download') {
+      final variantUrl = await getHighestQualityUrl(Uri.parse(masterUrl), headers: headers);
+      if (variantUrl == null) {
+        controller.evaluateJavascript(source: 'alert(`Could not load video manifest`)');
+        return;
+      }
+      NotificationController.startIsolate(playlistTask, [variantUrl, title, headers]);
+      return;
+    }
+
+    process(controller, masterUrl, title, mode);
+  } catch (e) {
+    log('Error in dailymotionPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
+}
 
-  final title = json['title'];
+String? _extractDailymotionId(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return null;
 
-  final target = json["qualities"]["auto"][0]["url"];
+  final queryId = uri.queryParameters['video'];
+  if (queryId?.isNotEmpty == true) return queryId;
 
-  var m3uResponse = await http.get(Uri.parse(target), headers: {"Referer": "https://www.dailymotion.com/"});
-
-  RegExp pattern = RegExp(r'PROGRESSIVE-URI="([^"]*)"');
-
-  final directLink = pattern.allMatches(m3uResponse.body).last.group(1);
-  log(directLink.toString());
-
-  process(controller, directLink, title, mode);
+  return RegExp(r'/video/([^?/]+)').firstMatch(url)?.group(1);
 }
 
 void supervideoPlayer(controller, url, context, mode) async {
