@@ -35,6 +35,26 @@ part 'notification_controller.dart';
 
 String savePath = '/sdcard/Download/Shinden';
 
+Future<void> launchProxiedHlsStream({
+  required String streamUrl,
+  required String referer,
+  required String title,
+  String? userAgent,
+}) async {
+  await VideoServer().start();
+  await AndroidIntent(
+    action: 'action_view',
+    type: 'application/vnd.apple.mpegurl',
+    data: buildVideoProxyUri(
+      url: streamUrl,
+      referer: referer,
+      userAgent: userAgent,
+      playlistEntry: true,
+    ),
+    arguments: {'title': title},
+  ).launch();
+}
+
 void process(controller, url, fileName, mode, {Map<String, String>? headers}) async {
   String title = fileName.toString().trim();
   switch (mode) {

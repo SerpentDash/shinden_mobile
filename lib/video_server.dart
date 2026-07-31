@@ -8,6 +8,63 @@ import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 import 'dart:convert';
 
+/// Local proxy URL for streams that need Referer/User-Agent or HLS playlist rewriting.
+String buildVideoProxyUri({
+  required String url,
+  required String referer,
+  String? userAgent,
+  bool playlistEntry = false,
+}) {
+  return Uri(
+    scheme: 'http',
+    host: 'localhost',
+    port: 8069,
+    path: playlistEntry ? '/play.m3u8' : '/',
+    queryParameters: {
+      'url': url,
+      'referer': referer,
+      if (userAgent != null && userAgent.isNotEmpty) 'ua': userAgent,
+    },
+  ).toString();
+}
+
+bool _shouldRewritePlaylist(String url, ContentType? contentType) {
+  if (contentType?.mimeType == 'application' && contentType?.subType == 'vnd.apple.mpegurl') {
+    return true;
+  }
+
+  final lower = url.toLowerCase();
+  return lower.endsWith('.m3u8') || lower.endsWith('.m3u') || lower.endsWith('.txt') || lower.contains('master');
+}
+
+String _rewriteHlsPlaylist(String body, Uri sourceUrl, String referer, String? userAgent) {
+  final base = sourceUrl.resolve('./');
+  final buffer = StringBuffer();
+
+  for (final line in body.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) {
+      buffer.writeln(line);
+      continue;
+    }
+
+    final absolute = base.resolve(trimmed).toString();
+    buffer.writeln(
+      buildVideoProxyUri(url: absolute, referer: referer, userAgent: userAgent),
+    );
+  }
+
+  return buffer.toString();
+}
+
+Future<Uint8List> _readResponseBytes(HttpClientResponse response) async {
+  final builder = BytesBuilder(copy: false);
+  await for (final chunk in response) {
+    builder.add(chunk);
+  }
+  return builder.takeBytes();
+}
+
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(VideoServerTaskHandler());
@@ -96,6 +153,7 @@ class VideoServerTaskHandler extends TaskHandler {
   Future<void> handleVideoStream(HttpRequest request) async {
     final url = request.uri.queryParameters['url'];
     final referer = request.uri.queryParameters['referer'];
+    final userAgent = request.uri.queryParameters['ua'];
 
     if (url == null) {
       request.response
@@ -110,6 +168,9 @@ class VideoServerTaskHandler extends TaskHandler {
       final client = HttpClient()..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
       final videoRequest = await client.getUrl(Uri.parse(url));
       videoRequest.headers.set('Referer', referer ?? '');
+      if (userAgent != null && userAgent.isNotEmpty) {
+        videoRequest.headers.set('User-Agent', userAgent);
+      }
 
       final rangeHeader = request.headers.value('Range');
       if (rangeHeader != null) {
@@ -118,8 +179,31 @@ class VideoServerTaskHandler extends TaskHandler {
       }
 
       final videoResponse = await videoRequest.close();
+      final contentType = videoResponse.headers.contentType;
 
-      request.response.headers.contentType = videoResponse.headers.contentType;
+      if (_shouldRewritePlaylist(url, contentType)) {
+        final bytes = await _readResponseBytes(videoResponse);
+        final body = utf8.decode(bytes);
+
+        if (body.trimLeft().startsWith('#EXTM3U')) {
+          final rewritten = _rewriteHlsPlaylist(body, Uri.parse(url), referer ?? '', userAgent);
+          request.response.statusCode = HttpStatus.ok;
+          request.response.headers.contentType = ContentType('application', 'vnd.apple.mpegurl');
+          request.response.write(rewritten);
+          await request.response.close();
+          return;
+        }
+
+        request.response.statusCode = HttpStatus.ok;
+        if (contentType != null) {
+          request.response.headers.contentType = contentType;
+        }
+        request.response.add(bytes);
+        await request.response.close();
+        return;
+      }
+
+      request.response.headers.contentType = contentType;
       request.response.headers.set('Accept-Ranges', 'bytes');
 
       if (rangeHeader != null) {

@@ -32,6 +32,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
   MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
+  MapEntry(['playmate'], playmatePlayer),
 ];
 
 bool isVidaraUrl(Uri uri) {
@@ -1240,6 +1241,85 @@ void morenciusPlayer(controller, url, context, mode) async {
     }
   } catch (e) {
     log('Error in morenciusPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void playmatePlayer(controller, url, context, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    final fileCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+
+    if (fileCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': url,
+      'Accept': 'application/json, text/plain, */*',
+    };
+
+    final apiHeaders = Map<String, String>.from(headers)..['Content-Type'] = 'application/json';
+    final apiResponse = await http.post(
+      Uri.parse('${uri.scheme}://${uri.host}/api/s'),
+      headers: apiHeaders,
+      body: jsonEncode({'c': fileCode, 'd': 'web'}),
+    );
+
+    if (apiResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not get video data: ${apiResponse.statusCode}`)');
+      return;
+    }
+
+    final data = jsonDecode(apiResponse.body);
+    final directLink = data['sx']?.toString();
+    if (directLink == null || directLink.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No streaming URL found`)');
+      return;
+    }
+
+    var title = data['tx']?.toString().trim() ?? '';
+    if (title.isEmpty) {
+      title = 'Video from ${uri.host}';
+      try {
+        final htmlResponse = await http.get(uri, headers: headers);
+        if (htmlResponse.statusCode == 200) {
+          final htmlTitle = parse(htmlResponse.body).querySelector('title')?.text.trim();
+          if (htmlTitle != null && htmlTitle.isNotEmpty) {
+            title = htmlTitle.replaceAll(RegExp(r'\s*-\s*playmate\s*$', caseSensitive: false), '').trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    final streamHeaders = <String, String>{
+      'User-Agent': headers['User-Agent']!,
+      'Referer': url,
+    };
+
+    switch (mode) {
+      case 'download':
+        NotificationController.startIsolate(playlistTask, [directLink, title, streamHeaders]);
+        break;
+      case 'stream':
+        await launchProxiedHlsStream(
+          streamUrl: directLink,
+          referer: url,
+          title: title,
+          userAgent: headers['User-Agent'],
+        );
+        break;
+      case 'seal':
+        sealHandler(controller, directLink, context, mode);
+        break;
+      default:
+        process(controller, directLink, title, mode, headers: streamHeaders);
+        break;
+    }
+  } catch (e) {
+    log('Error in playmatePlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
