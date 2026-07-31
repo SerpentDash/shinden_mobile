@@ -31,7 +31,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['streamhls', 'bigwarp', 'savefiles', 'default', 'vidnest'], streamhlsPlayer), // 'Default'
   MapEntry(['strmup', 'streamup'], streamupPlayer), // 'Default'
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
-  MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
+  MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa', 'antarcticadocs'], vidaraPlayer),
   MapEntry(['playmate'], playmatePlayer),
   MapEntry(['uqload'], uqloadPlayer),
   MapEntry(['flyf.lat'], flyfPlayer),
