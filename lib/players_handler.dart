@@ -34,6 +34,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
   MapEntry(['playmate'], playmatePlayer),
   MapEntry(['uqload'], uqloadPlayer),
+  MapEntry(['flyf.lat'], flyfPlayer),
 ];
 
 bool isVidaraUrl(Uri uri) {
@@ -1397,6 +1398,94 @@ void uqloadPlayer(controller, url, context, mode) async {
     }
   } catch (e) {
     log('Error in uqloadPlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void flyfPlayer(controller, url, context, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    String fileToken = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+    if (fileToken.contains('-')) fileToken = fileToken.split('-').last;
+    if (fileToken.endsWith('.html')) fileToken = fileToken.replaceAll('.html', '');
+    if (fileToken.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    final embedReferer = uri.pathSegments.contains('embed')
+        ? url
+        : '${uri.scheme}://${uri.host}/embed/$fileToken';
+
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'X-FlyFile-View': 'embed',
+      'X-Embed-Referrer': embedReferer,
+      'X-Adblock-Detected': '0',
+    };
+
+    const apiBase = 'https://api.flyfile.app/api';
+
+    String title = fileToken;
+    var useHls = true;
+    final metaResponse = await http.get(Uri.parse('$apiBase/public/file/$fileToken'), headers: headers);
+    if (metaResponse.statusCode == 200) {
+      final meta = jsonDecode(metaResponse.body) as Map<String, dynamic>;
+      final metaTitle = meta['name']?.toString().trim();
+      if (metaTitle != null && metaTitle.isNotEmpty) {
+        title = metaTitle;
+      }
+
+      final qualities = (meta['videoAsset'] as Map<String, dynamic>?)?['qualities'];
+      final hasHls = qualities is List && qualities.any((q) => q is Map && q['status'] == 'READY');
+      if (!hasHls && meta['mimeType']?.toString().startsWith('video/') == true) {
+        useHls = false;
+      }
+    }
+
+    final assignResponse = await http.get(Uri.parse('$apiBase/streaming/assign/$fileToken'), headers: headers);
+    if (assignResponse.statusCode != 200) {
+      controller.evaluateJavascript(source: 'alert(`Could not get streaming URL: ${assignResponse.statusCode}`)');
+      return;
+    }
+
+    final assign = jsonDecode(assignResponse.body) as Map<String, dynamic>;
+    final streamBase = assign['url']?.toString();
+    final streamToken = assign['token']?.toString();
+    if (streamBase == null || streamToken == null || streamBase.isEmpty || streamToken.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`No streaming URL found`)');
+      return;
+    }
+
+    final directLink = useHls
+        ? '$streamBase/hls/$streamToken/master.m3u8'
+        : '$streamBase/raw/$streamToken';
+
+    switch (mode) {
+      case 'download':
+        if (directLink.contains('.m3u8')) {
+          NotificationController.startIsolate(playlistTask, [directLink, title, const <String, String>{}]);
+        } else {
+          download(directLink, '$title.mp4');
+        }
+        break;
+      case 'stream':
+        await AndroidIntent(
+          action: 'action_view',
+          type: directLink.contains('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/*',
+          data: directLink,
+          arguments: {'title': title},
+        ).launch();
+        break;
+      case 'seal':
+        sealHandler(controller, directLink, context, mode);
+        break;
+      default:
+        process(controller, directLink, title, mode);
+        break;
+    }
+  } catch (e) {
+    log('Error in flyfPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
