@@ -29,28 +29,58 @@ String buildVideoProxyUri({
 }
 
 bool _shouldRewritePlaylist(String url, ContentType? contentType) {
-  if (contentType?.mimeType == 'application' && contentType?.subType == 'vnd.apple.mpegurl') {
+  final mime = contentType?.mimeType?.toLowerCase() ?? '';
+  final sub = contentType?.subType?.toLowerCase() ?? '';
+  if (mime == 'application' && sub == 'vnd.apple.mpegurl') {
+    return true;
+  }
+  if (mime.contains('mpegurl') || mime.contains('m3u8')) {
     return true;
   }
 
-  final lower = url.toLowerCase();
-  return lower.endsWith('.m3u8') || lower.endsWith('.m3u') || lower.endsWith('.txt') || lower.contains('master');
+  final path = Uri.parse(url).path.toLowerCase();
+  return path.endsWith('.m3u8') || path.endsWith('.m3u') || path.endsWith('.txt') || path.contains('master');
+}
+
+bool _isHlsPlaylistBody(String body) {
+  final normalized = body.replaceAll('\uFEFF', '').trimLeft();
+  return normalized.startsWith('#EXTM3U') || normalized.contains('#EXTINF') || normalized.contains('#EXT-X-STREAM-INF');
 }
 
 String _rewriteHlsPlaylist(String body, Uri sourceUrl, String referer, String? userAgent) {
+  final normalized = body.replaceAll('\uFEFF', '').trimLeft();
+  final playlistBody = normalized.startsWith('#EXTM3U') ? normalized : '#EXTM3U\n$normalized';
   final base = sourceUrl.resolve('./');
   final buffer = StringBuffer();
+  final uriInTag = RegExp(r'URI="([^"]+)"', caseSensitive: false);
 
-  for (final line in body.split('\n')) {
+  for (final line in playlistBody.split('\n')) {
     final trimmed = line.trim();
-    if (trimmed.isEmpty || trimmed.startsWith('#')) {
+    if (trimmed.isEmpty) {
+      buffer.writeln(line);
+      continue;
+    }
+
+    if (trimmed.startsWith('#')) {
+      final match = uriInTag.firstMatch(trimmed);
+      if (match != null) {
+        final absolute = base.resolve(match.group(1)!).toString();
+        final proxied = buildVideoProxyUri(url: absolute, referer: referer, userAgent: userAgent, playlistEntry: absolute.contains('.m3u8'));
+        buffer.writeln(line.replaceFirst(match.group(1)!, proxied));
+        continue;
+      }
       buffer.writeln(line);
       continue;
     }
 
     final absolute = base.resolve(trimmed).toString();
     buffer.writeln(
-      buildVideoProxyUri(url: absolute, referer: referer, userAgent: userAgent),
+      buildVideoProxyUri(
+        url: absolute,
+        referer: referer,
+        userAgent: userAgent,
+        playlistEntry: absolute.contains('.m3u8'),
+      ),
     );
   }
 
@@ -175,17 +205,26 @@ class VideoServerTaskHandler extends TaskHandler {
       final rangeHeader = request.headers.value('Range');
       if (rangeHeader != null) {
         videoRequest.headers.set('Range', rangeHeader);
-        log('Forwarding Range header: $rangeHeader');
       }
 
       final videoResponse = await videoRequest.close();
+      final statusCode = videoResponse.statusCode;
       final contentType = videoResponse.headers.contentType;
+
+      if (statusCode != HttpStatus.ok && statusCode != HttpStatus.partialContent) {
+        await videoResponse.drain<void>();
+        request.response
+          ..statusCode = statusCode
+          ..write('Upstream error $statusCode')
+          ..close();
+        return;
+      }
 
       if (_shouldRewritePlaylist(url, contentType)) {
         final bytes = await _readResponseBytes(videoResponse);
         final body = utf8.decode(bytes);
 
-        if (body.trimLeft().startsWith('#EXTM3U')) {
+        if (_isHlsPlaylistBody(body)) {
           final rewritten = _rewriteHlsPlaylist(body, Uri.parse(url), referer ?? '', userAgent);
           request.response.statusCode = HttpStatus.ok;
           request.response.headers.contentType = ContentType('application', 'vnd.apple.mpegurl');
@@ -218,12 +257,10 @@ class VideoServerTaskHandler extends TaskHandler {
         }
       });
 
-      log('request.response: ${request.response.headers}');
-
       await request.response.addStream(videoResponse);
       await request.response.close();
     } catch (e) {
-      log('Error streaming video: $e');
+      log('Error streaming video: $e url=$url');
       request.response
         ..statusCode = HttpStatus.internalServerError
         ..write('Error streaming video')

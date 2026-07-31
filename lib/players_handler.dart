@@ -33,6 +33,7 @@ final List<MapEntry<List<String>, Function>> handlers = [
   MapEntry(['bysesukior', 'bysetayico'], bysesukiorPlayer),
   MapEntry(['vidara', 'vidaarax', 'vidavaca', 'vidmatrixa'], vidaraPlayer),
   MapEntry(['playmate'], playmatePlayer),
+  MapEntry(['uqload'], uqloadPlayer),
 ];
 
 bool isVidaraUrl(Uri uri) {
@@ -1320,6 +1321,82 @@ void playmatePlayer(controller, url, context, mode) async {
     }
   } catch (e) {
     log('Error in playmatePlayer: $e');
+    controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
+  }
+}
+
+void uqloadPlayer(controller, url, context, mode) async {
+  try {
+    final uri = Uri.parse(url);
+    String fileCode = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+    if (fileCode.contains('-')) fileCode = fileCode.split('-').last;
+    if (fileCode.endsWith('.html')) fileCode = fileCode.replaceAll('.html', '');
+    if (fileCode.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not extract file code from URL`)');
+      return;
+    }
+
+    final embedUrl = '${uri.scheme}://${uri.host}/e/$fileCode';
+    final headers = <String, String>{
+      'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': embedUrl,
+    };
+
+    final response = await http.post(
+      Uri.parse('${uri.scheme}://${uri.host}/dl'),
+      headers: headers,
+      body: {'op': 'embed', 'file_code': fileCode, 'auto': '0', 'referer': embedUrl},
+    );
+
+    final evalMatch = RegExp(
+      r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'(?:\.split\('\|'\))?\)\)",
+      dotAll: true,
+    ).firstMatch(response.body);
+
+    if (evalMatch == null) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+
+    final deobfuscated = deobfuscateFilemoonJs(
+      evalMatch.group(1)!,
+      int.parse(evalMatch.group(2)!),
+      int.parse(evalMatch.group(3)!),
+      evalMatch.group(4)!.split('|'),
+    );
+
+    final directLink = RegExp(r'file:\s*"([^"]+)"').firstMatch(deobfuscated)?.group(1);
+    if (directLink == null || directLink.isEmpty) {
+      controller.evaluateJavascript(source: 'alert(`Could not find video URL`)');
+      return;
+    }
+
+    final streamHeaders = <String, String>{
+      'User-Agent': headers['User-Agent']!,
+      'Referer': embedUrl,
+    };
+
+    switch (mode) {
+      case 'download':
+        NotificationController.startIsolate(playlistTask, [directLink, fileCode, streamHeaders]);
+        break;
+      case 'stream':
+        await launchProxiedHlsStream(
+          streamUrl: directLink,
+          referer: embedUrl,
+          title: fileCode,
+          userAgent: headers['User-Agent'],
+        );
+        break;
+      case 'seal':
+        sealHandler(controller, directLink, context, mode);
+        break;
+      default:
+        process(controller, directLink, fileCode, mode, headers: streamHeaders);
+        break;
+    }
+  } catch (e) {
+    log('Error in uqloadPlayer: $e');
     controller.evaluateJavascript(source: 'alert(`Error: ${e.toString()}`)');
   }
 }
