@@ -174,10 +174,15 @@ void gdrivePlayer(controller, url, context, mode) async {
 }
 
 void sibnetPlayer(controller, url, context, mode) async {
-  var r1 = await http.get(Uri.parse(url));
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+    'Referer': 'https://video.sibnet.ru/',
+  };
+
+  var r1 = await http.get(Uri.parse(url), headers: headers);
 
   // Get video url
-  RegExp urlRegExp = RegExp(r'player.src\(\[\{src: "(.*?)",');
+  RegExp urlRegExp = RegExp(r'player\.src\(\[\{src: "(.*?)",');
   String? urlMatch = urlRegExp.firstMatch(r1.body)?.group(1);
 
   if (urlMatch == null) {
@@ -190,18 +195,31 @@ void sibnetPlayer(controller, url, context, mode) async {
   RegExp titleRegExp = RegExp(r"title: '([^']+)'");
   String? titleMatch = titleRegExp.firstMatch(r1.body)?.group(1);
 
-  // Send request for direct link
+  final mediaUrl = urlMatch.startsWith('http') ? urlMatch : 'https://video.sibnet.ru$urlMatch';
   Dio dio = Dio();
   final r2 = await dio.head(
-    "https://video.sibnet.ru$urlMatch",
-    options: Options(validateStatus: (status) => true, headers: {"referer": "$url"}),
+    mediaUrl,
+    options: Options(
+      validateStatus: (status) => true,
+      followRedirects: false,
+      headers: {...headers, 'Referer': url},
+    ),
   );
 
-  // Format direct link
-  var directLink = r2.realUri.toString();
+  final location = r2.headers.value('location');
+  if (location == null || location.isEmpty) {
+    controller.evaluateJavascript(source: 'alert(`Video does not exist!\nChoose other player.`)');
+    return;
+  }
+
+  final directLink = location.startsWith('//')
+      ? 'https:$location'
+      : location.startsWith('http')
+          ? location
+          : 'https://video.sibnet.ru$location';
   log(directLink);
 
-  process(controller, "https:$directLink", titleMatch, mode);
+  process(controller, directLink, titleMatch, mode);
 }
 
 void streamtapePlayer(controller, url, context, mode) async {
